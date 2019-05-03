@@ -1,35 +1,19 @@
-from datetime import datetime
 from hashlib import md5
-from time import time
-from operator import itemgetter
 from flask import current_app
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-import json
 from app import db, login
 from app.search import add_to_index, remove_from_index, query_index
-import os
-import contextlib
+from sqlalchemy.orm import validates
+import datetime
+
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), index=True, unique=True)
     email = db.Column(db.String(120), index=True, unique=True)
     password_hash = db.Column(db.String(128))
-    posts = db.relationship('Post', backref='author', lazy='dynamic')
-    threads = db.relationship('Thread', backref='author', lazy='dynamic')
-    categories = db.relationship('Category', backref='author', lazy='dynamic')
-    about_me = db.Column(db.String(140))
-    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
-    threads_visited = db.relationship('UserThreadMetadata', backref='user', lazy='dynamic')
-    last_message_read_time = db.Column(db.DateTime)
-    messages_sent = db.relationship('Message', foreign_keys='Message.sender_id',
-                                    backref='author', lazy='dynamic')
-    messages_received = db.relationship('Message', foreign_keys='Message.recipient_id',
-                                        backref='recipient', lazy='dynamic')
-    notifications = db.relationship('Notification', backref='user', lazy='dynamic')
-    reactions_given = db.relationship('PostReaction', backref='user', lazy='dynamic')
 
     def __repr__(self):
         return '<User {}>'.format(self.username)
@@ -45,77 +29,6 @@ class User(UserMixin, db.Model):
         return 'https://www.gravatar.com/avatar/{}?d=identicon&s={}'.format(
             digest, size)
 
-    def new_messages(self):
-        last_read_time = self.last_message_read_time or datetime(1900, 1, 1)
-        return Message.query.filter_by(recipient=self).filter(
-            Message.timestamp > last_read_time).count()
-
-    def react(self, post, reaction):
-        reaction = PostReaction(user=self, post=post, reaction_type=reaction)
-        db.session.add(reaction)
-        db.session.commit()
-
-    def remove_reaction(self, post, reaction):
-        reaction = PostReaction.query.filter_by(user=self, post=post, reaction_type=reaction)
-        reaction.delete()
-        db.session.commit()
-
-    def is_thread_viewed(self, thread):
-        return UserThreadMetadata.query.filter_by(user=self, thread=thread).count() > 0
-
-    def view_thread(self, thread):
-        # First time viewing thread
-        if not self.is_thread_viewed(thread):
-            utm = UserThreadMetadata(user=self, thread=thread)
-            db.session.add(utm)
-            db.session.commit()
-        # Re-visiting thread; increment view value
-        else:
-            utm = UserThreadMetadata.query.filter_by(user=self, thread=thread).first()
-            utm.user_thread_views += 1
-            db.session.commit()
-
-    def set_last_viewed_timestamp(self, thread, last_viewed_timestamp):
-        if not self.is_thread_viewed(thread):
-            utm = UserThreadMetadata(
-                user=self, thread=thread,
-                last_viewed_timestamp=last_viewed_timestamp).first()
-            db.session.add(utm)
-            db.session.commit()
-        else:
-            # check if the provided timestamp is more recent than the existing one
-            utm = UserThreadMetadata.query.filter_by(user=self, thread=thread).first()
-
-            # this is needed incase a UserThreadMetadata entry has been made,
-            # but there is no registered last_viewed_timestamp
-            if not utm.last_viewed_timestamp:
-                utm.last_viewed_timestamp = last_viewed_timestamp
-                db.session.commit()
-            # this is a more typical scenario.
-            elif utm.last_viewed_timestamp < last_viewed_timestamp:
-                utm.last_viewed_timestamp = last_viewed_timestamp
-                db.session.commit()
-
-    def get_user_thread_position(self, thread):
-        """return page and post_id based on user's last_viewed_timestamp"""
-
-        if not self.is_thread_viewed(thread):
-            return None, None
-        utm = UserThreadMetadata.query.filter_by(user=self, thread=thread).first()
-        if not utm.last_viewed_timestamp:
-            return None, None
-        posts = thread.posts.order_by(Post.timestamp.asc()).filter(Post.timestamp <= utm.last_viewed_timestamp).all()
-        pos = len(posts)  # the number of posts in thread that are older than the user's last-read post timestamp
-        page_num = 1 + int((pos - 1) / current_app.config['POSTS_PER_PAGE'])  # pagenumber
-        post_id = posts[-1].id  # id of the post closest to the user's last-read post timestamp
-        return page_num, post_id
-
-    def get_reset_password_token(self, expires_in=600):
-        return jwt.encode(
-            {'reset_password': self.id, 'exp': time() + expires_in},
-            current_app.config['SECRET_KEY'],
-            algorithm='HS256').decode('utf-8')
-
     @staticmethod
     def verify_reset_password_token(token):
         try:
@@ -129,63 +42,6 @@ class User(UserMixin, db.Model):
 @login.user_loader
 def load_user(id):
     return User.query.get(int(id))
-
-
-class Thread(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(140))
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    category_id = db.Column(db.Integer, db.ForeignKey('category.id'))
-    posts = db.relationship('Post', backref='thread', lazy='dynamic')
-    users_visited = db.relationship('UserThreadMetadata', backref='thread', lazy='dynamic')
-
-    def __repr__(self):
-        return '<Thread {}>'.format(self.title)
-
-    def post_count(self):
-        count = self.posts.count()
-        return count
-
-    def last_post(self):
-        last_post_in_thread = Post.query.filter_by(thread_id=self.id).order_by(Post.timestamp.desc()).first()
-        return last_post_in_thread
-
-    def last_page(self):
-        last_page = int((self.posts.count() - 1) / current_app.config['POSTS_PER_PAGE'] + 1)
-        return last_page
-
-
-class Category(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(140), index=True, unique=True)
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    threads = db.relationship('Thread', backref='category', lazy='dynamic')
-
-    def __repr__(self):
-        return '<Category {}>'.format(self.title)
-
-    def post_count(self):
-        count = sum([t.posts.count() for t in self.threads])
-        return count
-
-    def last_post(self):
-        # Post where Post.thread_id == (Thread where Thread.category_id == self.id).id
-        last_post_in_category = Post.query.join(Thread, Thread.id == Post.thread_id).filter(
-            Thread.category_id == self.id).order_by(
-            Post.timestamp.desc()).first()
-        return last_post_in_category
-
-    def active_threads(self, number_of_threads):
-        thread_last_post_times = []
-        for t in self.threads:
-            p = t.last_post()
-            if p is not None:
-                thread_last_post_times.append((p.thread, p.timestamp))
-        sorted_threads = sorted(thread_last_post_times, key=itemgetter(1), reverse=True)
-        sorted_threads = [thread[0] for thread in sorted_threads]
-        return sorted_threads[:number_of_threads]
 
 
 class SearchableMixin(object):
@@ -231,86 +87,69 @@ db.event.listen(db.session, 'before_commit', SearchableMixin.before_commit)
 db.event.listen(db.session, 'after_commit', SearchableMixin.after_commit)
 
 
-class Post(SearchableMixin, db.Model):
-    __searchable__ = ['body']
-    id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.String(140))
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    thread_id = db.Column(db.Integer, db.ForeignKey('thread.id'))
-    reactions = db.relationship('PostReaction', backref='post', lazy='dynamic')
-
-    def __repr__(self):
-        return '<Post {}>'.format(self.body)
-
-    def page(self):
-        post_position = len(Post.query.filter_by(thread_id=self.thread_id).filter(Post.id <= self.id).all())
-        page = int((post_position - 1) / current_app.config['POSTS_PER_PAGE'] + 1)
-        return page
-
-
-class UserThreadMetadata(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    thread_id = db.Column(db.Integer, db.ForeignKey('thread.id'))
-    last_viewed_timestamp = db.Column(db.DateTime, index=True)  # the timestamp of the last post they have read
-    user_thread_views = db.Column(db.Integer, default=1)
-    __table_args__ = (db.UniqueConstraint('user_id', 'thread_id', name='_user_thread_metadata'),
-                      )
-
-    def __repr__(self):
-        return '<UserThreadMetadata for user {} in thread {}>'.format(self.user_id, self.thread_id)
-
-
-class PostReaction(db.Model):
-    # stores user reactions to posts
-    id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    emoji_id = db.Column(db.Integer, db.ForeignKey('emoji.id'))
-    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', 'emoji_id'),
-                      )
-
-    def __repr__(self):
-        return '<PostReaction {}>'.format(self.id)
-
-
-class Emoji(db.Model):
-    # stores reaction images
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(140))
-    icon_path = db.Column(db.String(140))  # todo - rename to filename
-    posts = db.relationship('PostReaction', backref='emoji', lazy='dynamic')
-
-    def __repr__(self):
-        return '<Emoji {}>'.format(self.name)
-
-    def delete(self):
-        with contextlib.suppress(FileNotFoundError):
-            os.remove(self.icon_path)
-        db.session.delete(self)
-        db.session.commit()
-
-class Message(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    body = db.Column(db.String(140))
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-
-    def __repr__(self):
-        return '<Message {}>'.format(self.body)
-
-
-class Notification(db.Model):
+class Country(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    timestamp = db.Column(db.Float, index=True, default=time)
-    payload_json = db.Column(db.Text)
+    c2 = db.Column(db.String(128), index=True)
+    __table_args__ = (db.UniqueConstraint('name'),
+                      )
 
-    def __repr__(self):
-        return '<Notification {}>'.format(self.name)
+    @validates('c2')
+    def validate_c2(self, key, c2) -> str:  # todo - confirm purpose of 'key'
+        if len(c2) != 2:
+            raise ValueError('c2 must be two characters')
+        return c2
 
-    def get_data(self):
-        return json.loads(str(self.payload_json))
+    def drugs(self):
+        DN1 = DN1_listing.query.filter_by(origin_id=self.id).all()
+        DN2 = DN2_listing.query.filter_by(origin_id=self.id).all()
+
+        return DN1 + DN2
+
+class Drug(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), index=True)
+    rechem_listings = db.relationship('Rechem_listing', backref='drug', lazy='dynamic')
+    DN1_listings = db.relationship('DN1_listing', backref='drug', lazy='dynamic')
+    DN2_listings = db.relationship('DN2_listing', backref='drug', lazy='dynamic')
+    __table_args__ = (db.UniqueConstraint('name'),
+                      )
+
+
+class Market(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), index=True)
+    rechem_listings = db.relationship('Rechem_listing', backref='market', lazy='dynamic')
+    dn1_listings = db.relationship('DN1_listing', backref='market', lazy='dynamic')
+    dn2_listings = db.relationship('DN2_listing', backref='market', lazy='dynamic')
+
+
+class Rechem_listing(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    market_id = db.Column(db.String(128), db.ForeignKey('market.id'))
+    drug_id = db.Column(db.Integer, db.ForeignKey('drug.id'))
+    price = db.Column(db.Float)
+    date = db.Column(db.DateTime, index=True)
+    date_entered = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)
+
+
+class DN1_listing(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    market_id = db.Column(db.String(128), db.ForeignKey('market.id'))
+    drug_id = db.Column(db.Integer, db.ForeignKey('drug.id'))
+    price = db.Column(db.Float)
+    date = db.Column(db.DateTime, index=True)
+    seller = db.Column(db.String(128), index=True)
+    origin_id = db.Column(db.Integer, db.ForeignKey('country.id'))
+    date_entered = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)
+
+
+class DN2_listing(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    market_id = db.Column(db.String(128), db.ForeignKey('market.id'))
+    drug_id = db.Column(db.Integer, db.ForeignKey('drug.id'))
+    price = db.Column(db.Float)
+    date = db.Column(db.DateTime, index=True)
+    seller = db.Column(db.String(128), index=True)
+    origin_id = db.Column(db.Integer, db.ForeignKey('country.id'))
+    date_entered = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)

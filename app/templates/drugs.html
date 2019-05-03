@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block app_content %}
+<table class="table table-condensed">
+    <tr>
+        <th> Drug </th>
+        <th> Rechem </th>
+        <th> DN1 </th>
+        <th> DN2 </th>
+    </tr>
+    {% for drug in drugs %}
+    <tr>
+        <td>{{ drug.name }}</td>
+        <td><a href="{{ url_for('main.drug', drug_id=drug.id) }}"> Rechem</a></td>
+        <td> N/A </td>
+        <td> N/A </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

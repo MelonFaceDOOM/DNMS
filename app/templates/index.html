@@ -3,29 +3,4 @@
 
 {% block app_content %}
 
-    {% for category in categories %}
-    {% include '_category.html' %}
-    {% endfor %}
-
-    <div class="row">
-        <div class="col-md-4">
-            <a href="{{ url_for('main.create_category') }}">
-                Create new discussion category
-            </a>
-        </div>
-    </div>
-    <nav aria-label="...">
-        <ul class="pager">
-            <li class="previous{% if not prev_url %} disabled{% endif %}">
-                <a href="{{ prev_url or '#' }}">
-                    <span aria-hidden="true">&larr;</span> Older categories
-                </a>
-            </li>
-            <li class="next{% if not next_url %} disabled{% endif %}">
-                <a href="{{ next_url or '#' }}">
-                    Newer categories <span aria-hidden="true">&rarr;</span>
-                </a>
-            </li>
-        </ul>
-    </nav>
 {% endblock %}

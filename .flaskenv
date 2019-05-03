@@ -1,3 +1,3 @@
-FLASK_APP=melly.py
+FLASK_APP=DNMS.py
 FLASK_DEBUG=1
 FLASK_ENV=production

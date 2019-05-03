@@ -10,22 +10,11 @@ class Config(object):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # MAIL_SERVER = os.environ.get('MAIL_SERVER')
-    # MAIL_PORT = int(os.environ.get('MAIL_PORT') or 25)
-    # MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS') is not None
-    # MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
-    # MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     ELASTICSEARCH_URL = os.environ.get('ELASTICSEARCH_URL')
     ADMINS = ['lemmyelon@gmail.com']
     POSTS_PER_PAGE = 25
     THREADS_PER_PAGE = 25
     CATEGORIES_PER_PAGE = 25
     UPLOAD_FOLDER = os.path.join(basedir, "app/static/images")
-    
-    
-    MAIL_SERVER = "smtp.googlemail.com"
-    MAIL_PORT = 587
-    MAIL_USE_TLS = 1
-    MAIL_USERNAME = "lemmyelon@gmail.com"
-    MAIL_PASSWORD = "unfamiliardessertspoon"
-    ADMINS = ['lemmyelon@gmail.com']
+    CELERY_BROKER_URL = 'redis://localhost:6379/0'
+    CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
