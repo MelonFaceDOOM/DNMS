@@ -91,6 +91,7 @@ class Country(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), index=True)
     c2 = db.Column(db.String(128), index=True)
+    listings = db.relationship('Listing', backref='country', lazy='dynamic')
     __table_args__ = (db.UniqueConstraint('name'),
                       )
 
@@ -100,56 +101,39 @@ class Country(db.Model):
             raise ValueError('c2 must be two characters')
         return c2
 
-    def drugs(self):
-        DN1 = DN1_listing.query.filter_by(origin_id=self.id).all()
-        DN2 = DN2_listing.query.filter_by(origin_id=self.id).all()
-
-        return DN1 + DN2
 
 class Drug(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), index=True)
-    rechem_listings = db.relationship('Rechem_listing', backref='drug', lazy='dynamic')
-    DN1_listings = db.relationship('DN1_listing', backref='drug', lazy='dynamic')
-    DN2_listings = db.relationship('DN2_listing', backref='drug', lazy='dynamic')
+    listings = db.relationship('Listing', backref='drug', lazy='dynamic')
     __table_args__ = (db.UniqueConstraint('name'),
                       )
 
+    def price(self, market_id):
+        q = Listing.query.filter_by(drug=self, market_id=market_id).order_by(Listing.date.desc()).first()
+        if q is None:
+            return None
+        return q.price
 
 class Market(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), index=True)
-    rechem_listings = db.relationship('Rechem_listing', backref='market', lazy='dynamic')
-    dn1_listings = db.relationship('DN1_listing', backref='market', lazy='dynamic')
-    dn2_listings = db.relationship('DN2_listing', backref='market', lazy='dynamic')
+    listings = db.relationship('Listing', backref='market', lazy='dynamic')
+    __table_args__ = (db.UniqueConstraint('name'),
+                      )
 
+    def has_drug(self, drug_id):
+        q = Listing.query.filter_by(market=self, drug_id=drug_id).first()
+        if q is None:
+            return False
+        return True
 
-class Rechem_listing(db.Model):
+class Listing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     market_id = db.Column(db.String(128), db.ForeignKey('market.id'))
     drug_id = db.Column(db.Integer, db.ForeignKey('drug.id'))
     price = db.Column(db.Float)
-    date = db.Column(db.DateTime, index=True)
-    date_entered = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)
-
-
-class DN1_listing(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    market_id = db.Column(db.String(128), db.ForeignKey('market.id'))
-    drug_id = db.Column(db.Integer, db.ForeignKey('drug.id'))
-    price = db.Column(db.Float)
-    date = db.Column(db.DateTime, index=True)
     seller = db.Column(db.String(128), index=True)
     origin_id = db.Column(db.Integer, db.ForeignKey('country.id'))
-    date_entered = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)
-
-
-class DN2_listing(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    market_id = db.Column(db.String(128), db.ForeignKey('market.id'))
-    drug_id = db.Column(db.Integer, db.ForeignKey('drug.id'))
-    price = db.Column(db.Float)
     date = db.Column(db.DateTime, index=True)
-    seller = db.Column(db.String(128), index=True)
-    origin_id = db.Column(db.Integer, db.ForeignKey('country.id'))
     date_entered = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)

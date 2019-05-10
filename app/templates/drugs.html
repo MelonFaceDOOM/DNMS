@@ -5,16 +5,24 @@
 <table class="table table-condensed">
     <tr>
         <th> Drug </th>
-        <th> Rechem </th>
-        <th> DN1 </th>
-        <th> DN2 </th>
+        {% for market in markets %}
+        <th>{{ market.name }}</th>
+        {% endfor %}
     </tr>
     {% for drug in drugs %}
     <tr>
         <td>{{ drug.name }}</td>
-        <td><a href="{{ url_for('main.drug', drug_id=drug.id) }}"> Rechem</a></td>
-        <td> N/A </td>
-        <td> N/A </td>
+
+        {% for market in markets %}
+        <td>
+            {% if market.has_drug(drug.id) %}
+            <a href="{{ url_for('main.drug', market_id=market.id, drug_id=drug.id) }}">{{ drug.price(market.id) }}</a>
+            {% else %}
+            N/A
+            {% endif %}
+        </td>
+        {% endfor %}
+
     </tr>
     {% endfor %}
 </table>

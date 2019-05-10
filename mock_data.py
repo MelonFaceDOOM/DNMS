@@ -310,7 +310,6 @@ drugs = ["RRS-PDM-35",
          "Heroin"
          ]
 
-
 def gen_rechem_listings():
     drugs = ["RRS-PDM-35",
              "N-(4-bromophenyl)adamantan-2-amine",
