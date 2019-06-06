@@ -7,9 +7,10 @@ from app.main.forms import EditProfileForm, SearchForm, CreateMockDataForm
 from app.main.graphs import create_plot
 import numpy as np
 import os
-from random import randrange, randint
+from random import randrange, randint, random
 from datetime import datetime, timedelta
 import time
+from ..tasks import add_together, test_task
 
 @bp.before_app_request
 def before_request():
@@ -27,6 +28,8 @@ def favicon():
 def index():
     # drugs = Drug.query.all()
     # listings = Rechem_listing.query.filter_by(drug=drugs[0]).all()
+    # result = add_together.delay(10, 20)
+    # print(result.wait())
     return render_template('index.html', title="Home")
 
 
@@ -155,10 +158,8 @@ def generate_random_listing(drugs, market, min_price, max_price, start_date, end
     date = start_date + timedelta(seconds=random_delta)
     price = np.random.randint(min_price, max_price)
     drug = drugs[np.random.randint(0, len(drugs) - 1)]
-    if origins:
-        origin = origins[np.random.randint(0, len(origins) - 1)]
-    if sellers:
-        seller = sellers[np.random.randint(0, len(sellers) - 1)]
+    origin = origins[np.random.randint(0, len(origins) - 1)] if origins else None
+    seller = sellers[np.random.randint(0, len(sellers) - 1)] if sellers else None
     listing = Listing(market=market, drug=drug, price=price, country=origin, seller=seller, date=date)
     return listing
 
@@ -194,23 +195,6 @@ def create_mock_data(market_id):
         return redirect(url_for('main.data_summary'))
     return render_template('create_mock_data.html', form=form, market_name=market.name)
 
-@current_app.celery.task(bind=True)
-def test_task(self, market_id):
-    drugs = Drug.query.all()
-    market = Market.query.filter_by(id=market_id).first()
-    total = randint(10,50)
-    start_date = datetime.strptime("01/01/2018", "%d/%m/%Y")
-    end_date = datetime.strptime("01/12/2018", "%d/%m/%Y")
-    for i in range(total):
-        listing = generate_random_listing(drugs, market, 10, 100, start_date, end_date)
-        db.session.add(listing)
-        db.session.commit()
-        self.update_state(state='PROGRESS',
-                          meta={'current': i, 'total': total,
-                                'status': "adding mock data"})
-        time.sleep(1)
-    return {'current': 100, 'total': 100, 'status': 'Task completed!', 'result': 42}
-
 @bp.route('/celery_test', methods=['GET', 'POST'])
 def celery_test():
     return render_template('celery_test.html')
@@ -218,7 +202,7 @@ def celery_test():
 @bp.route('/testtask', methods=['POST'])
 def testtask():
     market_id = 2 # TODO: replace with user input
-    task = test_task(market_id=market_id)
+    task = test_task.apply_async()
     return jsonify({}), 202, {'Location': url_for('main.taskstatus', task_id=task.id)}
 
 @bp.route('/status/<task_id>')
