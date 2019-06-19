@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import 'bootstrap/wtf.html' as wtf %}
+{% block app_content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/multi-select/0.9.12/css/multi-select.min.css" media="screen"
+      rel="stylesheet" type="text/css">
+    <h1>{{ market.name }} - create mock listings</h1>
+
+    <div class="multiple-select id" id="absent-drugs">
+        {% include "_unused_drug_multi_select.html" %}
+    </div>
+    <input type="button" value="submit" class="submit" market_id="{{ market.id }}"/>
+
+{% endblock %}
+
+{% block scripts %}
+
+{% endblock %}

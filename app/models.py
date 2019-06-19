@@ -110,10 +110,12 @@ class Drug(db.Model):
                       )
 
     def price(self, market_id):
-        q = Listing.query.filter_by(drug=self, market_id=market_id).order_by(Listing.date.desc()).first()
+        q = Listing.query.filter_by(drug=self,
+                                    market_id=market_id).first()  # TODO: This won't account for multiple listings for the same drug
         if q is None:
             return None
-        return q.price
+        return q.latest_price()
+
 
 class Market(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -128,12 +130,48 @@ class Market(db.Model):
             return False
         return True
 
+    def pages(self):
+        return Page.query.filter(Page.listing_id.in_([listing.id for listing in self.listings]))
+
+    def latest_pages(self):
+        '''creates a list with the latest page for each listing
+        orders this list so the oldest is first
+        returns this ordered list'''
+        latest_page_for_each_listing = [listing.newest_page() for listing in self.listings]
+        # sort so oldest is first:
+        ordered_pages = sorted(latest_page_for_each_listing, key=lambda x: x.timestamp, reverse=False)
+        return ordered_pages
+
+
 class Listing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(128))
     market_id = db.Column(db.String(128), db.ForeignKey('market.id'))
     drug_id = db.Column(db.Integer, db.ForeignKey('drug.id'))
-    price = db.Column(db.Float)
     seller = db.Column(db.String(128), index=True)
     origin_id = db.Column(db.Integer, db.ForeignKey('country.id'))
-    date = db.Column(db.DateTime, index=True)
-    date_entered = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)
+    pages = db.relationship('Page', backref='listing', lazy='dynamic')
+
+    # Currently unsure how to define a listing
+    # What if a url changes but the listing remains the same?
+    # What if origin country changes?
+    # What if the name changes?
+    # For now I will keep it at url=listing
+
+    def latest_price(self):
+        return self.pages.order_by(Page.timestamp.desc()).first().price
+
+    def newest_page(self):
+        return Page.query.filter_by(listing_id=self.id).order_by(Page.timestamp.desc()).first()
+
+    # TODO: add price function which returns the price from the latest page
+
+
+class Page(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128))
+    price = db.Column(db.Float)
+    html = db.Column(db.String(128))  # TODO: verify that this won't cap the length
+    listing_id = db.Column(db.Integer, db.ForeignKey('listing.id'))
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)

@@ -45,7 +45,7 @@ class CreateMockDataForm(FlaskForm):
     start_date = DateField('Start Date (dd/mm/yyyy)', format='%d/%m/%Y', validators=[DataRequired()],
                            default=datetime.strptime("01/01/2018", "%d/%m/%Y"))
     end_date = DateField('End Date (dd/mm/yyyy)', format='%d/%m/%Y', validators=[DataRequired()],
-                         default=datetime.strptime("01/12/2018", "%d/%m/%Y"))
+                         default=datetime.strptime("31/12/2018", "%d/%m/%Y"))
     seller = BooleanField("Include seller variable")
     origin = BooleanField("Include origin variable")
     submit = SubmitField('Submit')

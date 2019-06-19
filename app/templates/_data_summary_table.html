@@ -2,18 +2,22 @@
     <tr>
         <th>Market</th>
         <th>Number of listings</th>
+        <th>Data points</th>
+        <th></th>
         <th></th>
     </tr>
     {% for market in markets %}
     <tr>
         <td id="market_name{{ market.id }}">{{ market.name }}</td>
         <td id="listing_count{{ market.id }}">{{ market.listings.count() }}</td>
+        <td id="data_points{{ market.id }}">{{ market.pages().count() }}</td>
         <td>
             <input type="button" value="rename" class="rename_market" market_id="{{ market.id }}"/>
             <input type="button" value="delete" class="delete_market" market_id="{{ market.id }}"/>
             <!--<input type="button" value="add mock data" class="mock_data"-->
                    <!--onclick= "window.location.href" =  "{{ url_for('main.create_mock_data', market_id=market.id) }}" />-->
             <a href="{{ url_for('main.create_mock_data', market_id=market.id) }}" class="button">add mock data</a>
+            <a href="{{ url_for('main.create_mock_listings', market_id=market.id) }}" class="button">add mock listings</a>
         </td>
 
     </tr>
