@@ -58,7 +58,7 @@ def rechem_routine_task(self):
     }
     session = requests.session()
     session.headers = headers
-    total = latest_pages.count()
+    total = len(latest_pages)
     i = 0
     for page in latest_pages:
         i += 1

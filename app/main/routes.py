@@ -348,7 +348,7 @@ def add_mock_listings():
 #     return jsonify(response)
 
 @bp.route('/rechem_routine_check', methods=['GET', 'POST'])
-def celery_test():
+def rechem_routine_check():
     return render_template('rechem_routine_check.html')
 
 
