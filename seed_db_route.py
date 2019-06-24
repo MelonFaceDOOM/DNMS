@@ -1,15 +1,20 @@
 from flask_login import login_required
 from app import db
-from app.models import Country, Drug, Listing, Market
+from app.models import Country, Drug, Listing, Market, Page
 from app.main import bp
-from datetime import datetime
+import ast
+import sqlite3
+import pandas as pd
 import mock_data
+
 @bp.route('/seed_database/', methods=['GET', 'POST'])
 @login_required
 def seed_database():
     drugs = []
+    '''add in Drugs, Countries, and a few markets'''
+    drugs = []
     for d in mock_data.drugs:
-        q = Drug.query.filter_by(name=drugs).first()
+        q = Drug.query.filter_by(name=d).first()
         if q is None:
             drug = Drug(name=d)
             drugs.append(drug)
@@ -33,50 +38,48 @@ def seed_database():
             markets.append(market)
     db.session.add_all(markets)
     db.session.commit()
-
-
-    rechem_listings = mock_data.gen_rechem_listings()
-    dn1_listings = mock_data.gen_dn1_listings()
-    dn2_listings = mock_data.gen_dn2_listings()
-
-    listings = []
-    market = Market.query.filter_by(name="Rechem").first()
-    for l in rechem_listings[1:]:
-        name = l[0]
-        drug = Drug.query.filter_by(name=name).first()
-        price = l[1]
-        date = l[2].astype(datetime)
-        listing = Listing(drug=drug, price=price, date=date, market=market)
-        listings.append(listing)
-    db.session.add_all(listings)
-    db.session.commit()
-
-    listings = []
-    market = Market.query.filter_by(name="DN1").first()
-    for l in dn1_listings[1:]:
-        name = l[0]
-        drug = Drug.query.filter_by(name=name).first()
-        price = l[1]
-        date = l[2].astype(datetime)
-        seller = l[3]
-        origin = Country.query.filter_by(name=l[4]).first()
-        listing = Listing(drug=drug, price=price, date=date, seller=seller, origin_id=origin.id, market=market)
-        listings.append(listing)
-    db.session.add_all(listings)
-    db.session.commit()
-
-    listings = []
-    market = Market.query.filter_by(name="DN2").first()
-    for l in dn2_listings[1:]:
-        name = l[0]
-        drug = Drug.query.filter_by(name=name).first()
-        price = l[1]
-        date = l[2].astype(datetime)
-        seller = l[3]
-        origin = Country.query.filter_by(name=l[4]).first()
-        listing = Listing(drug=drug, price=price, date=date, seller=seller, origin_id=origin.id, market=market)
-        listings.append(listing)
-    db.session.add_all(listings)
-    db.session.commit()
-
     return ('', 204)
+
+
+@bp.route('/import_rechem_data/', methods=['GET', 'POST'])
+@login_required
+def import_rechem_data():
+    c = sqlite3.connect('rechem_listings.db')
+    with open('rechem_drug_titles', 'r') as f:
+        s = f.read()
+        drug_title_dict = ast.literal_eval(s)
+
+    rechem_pages = pd.read_sql_query("SELECT * FROM Listings", c)
+    rechem_listings = pd.read_sql_query("SELECT * FROM Listing_index", c)
+
+    for i, row in rechem_listings.iterrows():
+        rechem_listings.loc[i, 'drug'] = drug_title_dict[row['title']]
+
+    m = Market(name="rechem_real")
+    db.session.add(m)
+    db.session.commit()
+    print("market added")
+
+    listings = []
+    for i, row in rechem_listings.iterrows():
+        drug = Drug.query.filter_by(name=row['drug']).first()
+        if not drug:
+            db.session.add(Drug(name=row['drug']))
+            db.session.commit()
+        listings.append(Listing(url=row['url'], market=m, drug=drug))
+
+    db.session.add_all(listings)
+    db.session.commit()
+    print("Listings added")
+
+    pages = []
+    for i, row in rechem_pages.iterrows():
+        listing = rechem_listings[rechem_listings['id'] == row['listing_index_id']]
+        listing_drug = listing['drug'].item()
+        listing_name = listing['title'].item()
+        listing = Listing.query.filter_by(name=listing_drug).first()
+        pages.append(Page(html=row['page_text'], timestamp=row['scraped_time'], name=listing_name, listing=listing))
+
+    db.session.add_all(pages)
+    db.session.commit()
+    print("Pages added")
