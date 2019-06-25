@@ -12,6 +12,9 @@ from datetime import datetime, timedelta
 import time
 import mock_data
 from ..tasks import rechem_routine_task
+import ast
+import sqlite3
+import pandas as pd
 
 @bp.before_app_request
 def before_request():
@@ -389,3 +392,58 @@ def taskstatus(task_id):
             'status': str(task.info),  # this is the exception raised
         }
     return jsonify(response)
+
+@bp.route('/import_rechem_data/', methods=['GET', 'POST'])
+@login_required
+def import_rechem_data():
+    c = sqlite3.connect('rechem_listings.db')
+    with open('rechem_drug_titles', 'r') as f:
+        s = f.read()
+        drug_title_dict = ast.literal_eval(s)
+
+    rechem_pages = pd.read_sql_query("SELECT * FROM Listings", c)
+    rechem_listings = pd.read_sql_query("SELECT * FROM Listing_index", c)
+
+    for i, row in rechem_listings.iterrows():
+        rechem_listings.loc[i, 'drug'] = drug_title_dict[row['title']]
+
+    m = Market.query.filter_by(name="rechem_real").first()
+    if not m:
+        m = Market(name="rechem_real")
+        db.session.add(m)
+        db.session.commit()
+        print("market added")
+
+    listings = []
+    for i, row in rechem_listings.iterrows():
+        drug = Drug.query.filter_by(name=row['drug']).first()
+        if not drug:
+            db.session.add(Drug(name=row['drug']))
+            db.session.commit()
+        #check if listing for this drug exists. if not, add it.
+        listing = Listing.query.filter_by(drug=drug).first()
+        if not listing:
+            listings.append(Listing(url=row['url'], market=m, drug=drug))
+    if listings:
+        db.session.add_all(listings)
+        db.session.commit()
+        print("Listings added")
+
+    pages = []
+    for i, row in rechem_pages.iterrows():
+        listing = rechem_listings[rechem_listings['id'] == row['listing_index_id']]
+        listing_drug = listing['drug'].item()
+        listing_name = listing['title'].item()
+        drug = Drug.query.filter_by(name=listing_drug).first()
+        listing = Listing.query.filter_by(drug=drug, market=m).first()
+        # check if a page exsits for this time/listing. If not, add it.
+        timestamp = datetime.strptime(row['scraped_time'], "%Y-%m-%d %H:%M:%S")
+        page = Page.query.filter_by(listing=listing, timestamp=timestamp).first()
+        if not page:
+            pages.append(Page(html=row['page_text'], timestamp=timestamp, name=listing_name, listing=listing))
+
+    if pages:
+        db.session.add_all(pages)
+        db.session.commit()
+        print("Pages added")
+        return ('', 204)

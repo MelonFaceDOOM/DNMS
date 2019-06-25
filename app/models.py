@@ -137,7 +137,7 @@ class Market(db.Model):
         '''creates a list with the latest page for each listing
         orders this list so the oldest is first
         returns this ordered list'''
-        latest_page_for_each_listing = [listing.newest_page() for listing in self.listings]
+        latest_page_for_each_listing = [listing.newest_page() for listing in self.listings if listing.newest_page()]
         # sort so oldest is first:
         ordered_pages = sorted(latest_page_for_each_listing, key=lambda x: x.timestamp, reverse=False)
         return ordered_pages

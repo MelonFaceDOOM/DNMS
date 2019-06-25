@@ -43,7 +43,7 @@ def test_task(self):
 
 @celery.task(bind=True)
 def rechem_routine_task(self):
-    rechem = Market.query.filter_by(name="Rechem").first()
+    rechem = Market.query.filter_by(name="rechem_real").first()
     latest_pages = rechem.latest_pages()
 
     headers = {

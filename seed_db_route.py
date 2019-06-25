@@ -6,6 +6,7 @@ import ast
 import sqlite3
 import pandas as pd
 import mock_data
+from datetime import datetime
 
 @bp.route('/seed_database/', methods=['GET', 'POST'])
 @login_required
@@ -55,10 +56,12 @@ def import_rechem_data():
     for i, row in rechem_listings.iterrows():
         rechem_listings.loc[i, 'drug'] = drug_title_dict[row['title']]
 
-    m = Market(name="rechem_real")
-    db.session.add(m)
-    db.session.commit()
-    print("market added")
+    m = Market.query.filter_by(name="rechem_real").first()
+    if not m:
+        m = Market(name="rechem_real")
+        db.session.add(m)
+        db.session.commit()
+        print("market added")
 
     listings = []
     for i, row in rechem_listings.iterrows():
@@ -66,20 +69,30 @@ def import_rechem_data():
         if not drug:
             db.session.add(Drug(name=row['drug']))
             db.session.commit()
-        listings.append(Listing(url=row['url'], market=m, drug=drug))
-
-    db.session.add_all(listings)
-    db.session.commit()
-    print("Listings added")
+        #check if listing for this drug exists. if not, add it.
+        listing = Listing.query.filter_by(drug=drug).first()
+        if not listing:
+            listings.append(Listing(url=row['url'], market=m, drug=drug))
+    if listings:
+        db.session.add_all(listings)
+        db.session.commit()
+        print("Listings added")
 
     pages = []
     for i, row in rechem_pages.iterrows():
         listing = rechem_listings[rechem_listings['id'] == row['listing_index_id']]
         listing_drug = listing['drug'].item()
         listing_name = listing['title'].item()
-        listing = Listing.query.filter_by(name=listing_drug).first()
-        pages.append(Page(html=row['page_text'], timestamp=row['scraped_time'], name=listing_name, listing=listing))
+        drug = Drug.query.filter_by(name=listing_drug).first()
+        listing = Listing.query.filter_by(drug=drug, market=m).first()
+        # check if a page exsits for this time/listing. If not, add it.
+        timestamp = datetime.strptime(row['scraped_time'], "%Y-%m-%d %H:%M:%S")
+        page = Page.query.filter_by(listing=listing, timestamp=timestamp).first()
+        if not page:
+            pages.append(Page(html=row['page_text'], timestamp=timestamp, name=listing_name, listing=listing))
 
-    db.session.add_all(pages)
-    db.session.commit()
-    print("Pages added")
+    if pages:
+        db.session.add_all(pages)
+        db.session.commit()
+        print("Pages added")
+        return ('', 204)
