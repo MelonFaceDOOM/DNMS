@@ -309,47 +309,6 @@ def add_mock_listings():
     return render_template('_unused_drug_multi_select.html', drugs=drugs_not_in_market)
 
 
-# @bp.route('/celery_test', methods=['GET', 'POST'])
-# def celery_test():
-#     return render_template('celery_test.html')
-#
-#
-# @bp.route('/testtask', methods=['POST'])
-# def testtask():
-#     market_id = 2  # TODO: replace with user input
-#     task = test_task.apply_async()
-#     return jsonify({}), 202, {'Location': url_for('main.taskstatus', task_id=task.id)}
-#
-#
-# @bp.route('/status/<task_id>')
-# def taskstatus(task_id):
-#     task = test_task.AsyncResult(task_id)
-#     if task.state == 'PENDING':
-#         response = {
-#             'state': task.state,
-#             'current': 0,
-#             'total': 1,
-#             'status': 'Pending...'
-#         }
-#     elif task.state != 'FAILURE':
-#         response = {
-#             'state': task.state,
-#             'current': task.info.get('current', 0),
-#             'total': task.info.get('total', 1),
-#             'status': task.info.get('status', '')
-#         }
-#         if 'result' in task.info:
-#             response['result'] = task.info['result']
-#     else:
-#         # something went wrong in the background job
-#         response = {
-#             'state': task.state,
-#             'current': 1,
-#             'total': 1,
-#             'status': str(task.info),  # this is the exception raised
-#         }
-#     return jsonify(response)
-
 @bp.route('/rechem_routine_check', methods=['GET', 'POST'])
 def rechem_routine_check():
     return render_template('rechem_routine_check.html')
@@ -357,17 +316,21 @@ def rechem_routine_check():
 
 @bp.route('/rechemroutinetask', methods=['POST'])
 def rechemroutinetask():
+    """starts the task and returns basic info"""
     task = rechem_routine_task.apply_async()
     return jsonify({}), 202, {'Location': url_for('main.taskstatus', task_id=task.id)}
 
 
 @bp.route('/status/<task_id>')
 def taskstatus(task_id):
+    """checks task status and returns info"""
     task = rechem_routine_task.AsyncResult(task_id)
     if task.state == 'PENDING':
         response = {
             'state': task.state,
             'current': 0,
+            'successes': 0,
+            'failures': 0,
             'total': 1,
             'sleeptime': 0,
             'status': 'Pending...'
@@ -377,6 +340,8 @@ def taskstatus(task_id):
             'state': task.state,
             'current': task.info.get('current', 0),
             'total': task.info.get('total', 1),
+            'successes': task.info.get('successes', 0),
+            'failures': task.info.get('failures', 0),
             'sleeptime': task.info.get('sleeptime', 0),
             'status': task.info.get('status', '')
         }
@@ -387,6 +352,8 @@ def taskstatus(task_id):
         response = {
             'state': task.state,
             'current': 1,
+            'successes': 0,
+            'failures': 0,
             'total': 1,
             'sleeptime': 0,
             'status': str(task.info),  # this is the exception raised
@@ -401,6 +368,7 @@ def import_rechem_data():
         s = f.read()
         drug_title_dict = ast.literal_eval(s)
 
+
     rechem_pages = pd.read_sql_query("SELECT * FROM Listings", c)
     rechem_listings = pd.read_sql_query("SELECT * FROM Listing_index", c)
 
@@ -414,14 +382,25 @@ def import_rechem_data():
         db.session.commit()
         print("market added")
 
+    # delete existing data
+    # m.pages() needs to be deleted one at a time, as far as I can tell, whereas m.listings can be deleted all at once
+    # There is probably a way to delete m.pages() all at once, but it doesn't seem worth figuring out
+    # pages = m.pages()
+    # [db.session.delete(p) for p in pages]
+    # listings = m.listings
+    # listings.delete()
+    # db.session.commit()
+
+    print("{} listings and {} pages remaining".format(m.listings.count(), m.pages().count()))
+
     listings = []
     for i, row in rechem_listings.iterrows():
         drug = Drug.query.filter_by(name=row['drug']).first()
         if not drug:
             db.session.add(Drug(name=row['drug']))
             db.session.commit()
-        #check if listing for this drug exists. if not, add it.
-        listing = Listing.query.filter_by(drug=drug).first()
+        # check if listing for this url exists. if not, add it.
+        listing = Listing.query.filter_by(url=row['url']).first()
         if not listing:
             listings.append(Listing(url=row['url'], market=m, drug=drug))
     if listings:
@@ -431,11 +410,11 @@ def import_rechem_data():
 
     pages = []
     for i, row in rechem_pages.iterrows():
-        listing = rechem_listings[rechem_listings['id'] == row['listing_index_id']]
-        listing_drug = listing['drug'].item()
-        listing_name = listing['title'].item()
-        drug = Drug.query.filter_by(name=listing_drug).first()
-        listing = Listing.query.filter_by(drug=drug, market=m).first()
+        original_listing = rechem_listings[rechem_listings['id'] == row['listing_index_id']]
+        url = original_listing['url'].item()
+        listing_name = original_listing['title'].item()
+
+        listing = Listing.query.filter_by(url=url).first()
         # check if a page exsits for this time/listing. If not, add it.
         timestamp = datetime.strptime(row['scraped_time'], "%Y-%m-%d %H:%M:%S")
         page = Page.query.filter_by(listing=listing, timestamp=timestamp).first()

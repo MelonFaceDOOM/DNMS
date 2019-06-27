@@ -11,14 +11,14 @@ def is_gibberish(content_bytes):
     
 def rget(url, session, delay=False):
     if delay:
-        sleep(randint(1,4))
+        sleep(randint(1, 4))
         
     content = session.get(url)
     max_retries = 5
     retries = 0
     while is_gibberish(content.content) and retries <= max_retries:
         logging.info("gibberish encountered. Trying again.")
-        sleep(randint(5,10))
+        sleep(randint(5, 10))
         content = session.get(url)
         retries += 1
         

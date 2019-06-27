@@ -111,7 +111,8 @@ class Drug(db.Model):
 
     def price(self, market_id):
         q = Listing.query.filter_by(drug=self,
-                                    market_id=market_id).first()  # TODO: This won't account for multiple listings for the same drug
+                                    market_id=market_id).first()  # TODO: This won't account for multiple listings for
+                                                                  # TODO: the same drug
         if q is None:
             return None
         return q.latest_price()
@@ -134,10 +135,15 @@ class Market(db.Model):
         return Page.query.filter(Page.listing_id.in_([listing.id for listing in self.listings]))
 
     def latest_pages(self):
-        '''creates a list with the latest page for each listing
+        """creates a list with the latest page for each listing
         orders this list so the oldest is first
-        returns this ordered list'''
+        returns this ordered list"""
+
+        # TODO: this may need to be updated. if a listing does not have any pages associated with it, it won't be
+        #  returned here. There shouldn't be any listings that don't have pages, so I don't think it will matter
+        #  but we will have to see how things actually end up being used once data collection starts
         latest_page_for_each_listing = [listing.newest_page() for listing in self.listings if listing.newest_page()]
+
         # sort so oldest is first:
         ordered_pages = sorted(latest_page_for_each_listing, key=lambda x: x.timestamp, reverse=False)
         return ordered_pages
