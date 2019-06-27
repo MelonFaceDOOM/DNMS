@@ -54,15 +54,15 @@ def rechem_routine_task(self):
             logging.warning("Unable to reach product: {}".format(page.listing.url))
             failures += 1
         else:
-            db.session.add(Page(listing_id=page.listing_id), html=content.text)
+            db.session.add(Page(listing_id=page.listing_id, html=content.text))
             db.session.commit()
             successes += 1
 
-        sleep_time = randint(120, 240)
+        sleeptime = randint(120, 240)
         self.update_state(state='PROGRESS',
                           meta={'current': pages_processed, 'total': total, 'successes': successes,
-                                'failures': failures, 'sleep_time': sleep_time, 'status': "waiting"})
-        sleep(sleep_time)
+                                'failures': failures, 'sleeptime': sleeptime, 'status': "waiting"})
+        sleep(sleeptime)
 
     return {'current': pages_processed, 'total': total, 'successes': successes, 'failures': failures,
             'status': 'Completed attempting to scrape all known pages', 'result': 42}

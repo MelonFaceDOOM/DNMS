@@ -1,3 +1,9 @@
-# melly
+# Dark Net Market Scraping
 
-python flask forum based on the following tutorial: https://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-i-hello-world
+1) clone repository
+2) python3 -m venv venv
+3) source venv/bin/activat
+4) pip install -r requirements.txt
+5) flask run
+6) ./run-redis.sh
+7) venv/bin/celery worker -A DNMS.celery --loglevel=info

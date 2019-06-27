@@ -24,4 +24,6 @@ def rget(url, session, delay=False):
         
     if is_gibberish(content.content):
         logging.error("Still gibberish after 5 attempts")
-        return None 
+        return None
+    else:
+        return content

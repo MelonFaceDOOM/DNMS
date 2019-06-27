@@ -2,89 +2,18 @@
 {% import 'bootstrap/wtf.html' as wtf %}
 
 {% block app_content %}
-<h1>Flask + Celery Examples</h1>
-    <h2>Example 2: Long running task with progress updates</h2>
-    <!--<button onclick="start_test_task();">Start Long Calculation</button><br><br>-->
+<h1>Rechem routine scraping</h1>
     <button id="start-bg-job">Start Rechem routine check</button><br><br>
     <div id="progress"></div>
     <div id="countdowntimer"></div>
     <div id="successes"></div>
     <div id="failures"></div>
 
+    <button id="countdown_test">Start countdown</button><br><br>
+{% endblock %}
+
+{% block scripts %}
     <script src="//cdnjs.cloudflare.com/ajax/libs/nanobar/0.2.1/nanobar.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-    <script>
-        function start_test_task() {
-            // add task status elements
-            div = $('<div class="progress"><div></div><div>0%</div><div>...</div><div>&nbsp;</div></div><hr>');
-            $('#progress').append(div);
-            // create a progress bar
-            var nanobar = new Nanobar({
-                bg: '#44f',
-                target: div[0].childNodes[0]
-            });
-            // send ajax POST request to start background job
-            $.ajax({
-                type: 'POST',
-                url: '/rechemroutinetask',
-                success: function(data, status, request) {
-                    status_url = request.getResponseHeader('Location');
-                    update_progress(status_url, nanobar, div[0]);
-                },
-                error: function() {
-                    alert('Unexpected error');
-                }
-            });
-        }
-        function update_progress(status_url, nanobar, status_div) {
-            // send GET request to status URL
-            $.getJSON(status_url, function(data) {
-                // update UI
-
-                // update basic progress stats
-                percent = parseInt(data['current'] * 100 / data['total']);
-                nanobar.go(percent);
-                $(status_div.childNodes[1]).text(percent + '%');
-                $(status_div.childNodes[2]).text(data['status']);
-                $('#successes').text('Successes' + data['successes']);
-                $('#failures').text('Failures: + 'data['failures']);
-
-                // check if status is pending or progress
-                if (data['state'] != 'PENDING' && data['state'] != 'PROGRESS') {
-                    if ('result' in data) {
-                        // show result
-                        $(status_div.childNodes[3]).text('Result: ' + data['result']);
-                    }
-                    else {
-                        // something unexpected happened
-                        $(status_div.childNodes[3]).text('Result: ' + data['state']);
-                    }
-                }
-                else if (data['state'] == "PENDING") {
-                    // rerun in 1 seconds
-                    setTimeout(function() {
-                        update_progress(status_url, nanobar, status_div);
-                    }, 1000);
-                }
-                else if (data['state'] == "PROGRESS") {
-                    var timeleft = data['sleeptime'];
-                    var timer = setInterval(function(){
-                        document.getElementById("countdowntimer").innerHTML = timeleft;
-                        timeleft -= 1;
-                        if(timeleft <= 0){
-                        clearInterval(timer);
-                        document.getElementById("countdowntimer").innerHTML = "Finished"
-                    }
-                }, 1000);
-                    //// wait until sleeptime is complete
-                    //setTimeout(function() {
-                    //    update_progress(status_url, nanobar, status_div);
-                    //}, data['sleeptime'] * 1000);
-                };
-            });
-        }
-        $(function() {
-            $('#start-bg-job').click(start_test_task);
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/rechem_routine_check.js') }}"></script>
 {% endblock %}
