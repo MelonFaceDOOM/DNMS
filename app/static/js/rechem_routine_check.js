@@ -1,3 +1,15 @@
+function check_existing_task(status_url) {
+    // add task status elements
+    div = $('<div class="progress"><div></div><div>0%</div><div>...</div><div>&nbsp;</div></div><hr>');
+    $('#progress').append(div);
+    // create a progress bar
+    var nanobar = new Nanobar({
+        bg: '#44f',
+        target: div[0].childNodes[0]
+    });
+    update_progress(status_url, nanobar, div[0]);
+};
+
 $(document).on("click", "#start-bg-job", function start_task() {
     // add task status elements
     div = $('<div class="progress"><div></div><div>0%</div><div>...</div><div>&nbsp;</div></div><hr>');
@@ -51,6 +63,7 @@ function update_progress(status_url, nanobar, status_div) {
                 update_progress(status_url, nanobar, status_div);
             }, 1000);
         }
+        //start countdown timer and wait that amount of time
         else if (data['state'] == "PROGRESS") {
             var timeleft = data['sleeptime'];
             var timer = setInterval(function(){
@@ -67,4 +80,17 @@ function update_progress(status_url, nanobar, status_div) {
             }, data['sleeptime'] * 1000);
         };
     });
-}
+};
+
+$(document).on("click", "#kill-bg-job",function kill_task(task_id) {
+    $.ajax({
+        type: 'POST',
+        url: '/kill_task/'+task_id,
+        success: function() {
+            alert("task killed")
+        },
+        error: function() {
+            alert('Unexpected error');
+        }
+    });
+});

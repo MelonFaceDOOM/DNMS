@@ -63,6 +63,6 @@ def rechem_routine_task(self):
                           meta={'current': pages_processed, 'total': total, 'successes': successes,
                                 'failures': failures, 'sleeptime': sleeptime, 'status': "waiting"})
         sleep(sleeptime)
-
+    self.update_state(state='SUCCESS')
     return {'current': pages_processed, 'total': total, 'successes': successes, 'failures': failures,
             'status': 'Completed attempting to scrape all known pages', 'result': 42}
