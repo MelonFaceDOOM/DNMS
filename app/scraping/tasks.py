@@ -1,8 +1,6 @@
-from . import celery
-from datetime import datetime, timedelta
-import numpy as np
+from app import celery
 from random import randint, randrange
-from app.models import Drug, Market, Listing, Page
+from app.models import Market, Page
 from app import db
 import time
 import requests
@@ -66,3 +64,15 @@ def rechem_routine_task(self):
     self.update_state(state='SUCCESS')
     return {'current': pages_processed, 'total': total, 'successes': successes, 'failures': failures,
             'status': 'Completed attempting to scrape all known pages', 'result': 42}
+
+@celery.task(bind=True)
+def test_task(self):
+    for i in range(1000):
+        logging.info("on loop {}".format(i))
+        self.update_state(state='PROGRESS',
+                          meta={'current': i+1, 'total': 1000, 'successes': 0,
+                                'failures': 0, 'sleeptime': 3, 'status': "waiting"})
+        time.sleep(3)
+    self.update_state(state='SUCCESS')
+    return {'current': 1000, 'total': 1000, 'successes': 0, 'failures': 0,
+            'status': 'Completed', 'result': 42}

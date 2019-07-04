@@ -23,6 +23,11 @@ moment = Moment()
 celery = Celery(__name__, broker=Config.CELERY_BROKER_URL)
 
 
+# TODO: will have to add more features to this, such as checking status and confirming if it is alive
+# TODO: probably move it to a separate file and declare the scrapers here
+
+
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -44,6 +49,16 @@ def create_app(config_class=Config):
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
 
+    from app.scraping import bp as scraping_bp
+    from app.scraping.scraper import Scraper
+    from app.scraping import tasks
+    app.register_blueprint(scraping_bp, url_prefix='/scraping')
+    app.scrapers = {"rechem": Scraper(name="rechem", task_func=tasks.rechem_routine_task),
+                    "test": Scraper(name="test", task_func=tasks.test_task)}
+
+    app.elasticsearch = Elasticsearch([app.config['ELASTICSEARCH_URL']]) \
+        if app.config['ELASTICSEARCH_URL'] else None
+
     if not app.debug and not app.testing:
         if not os.path.exists('logs'):
             os.mkdir('logs')
@@ -57,10 +72,6 @@ def create_app(config_class=Config):
 
         app.logger.setLevel(logging.INFO)
         app.logger.info('DNMS startup')
-        
-    app.elasticsearch = Elasticsearch([app.config['ELASTICSEARCH_URL']]) \
-        if app.config['ELASTICSEARCH_URL'] else None
-
 
     return app
 

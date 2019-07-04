@@ -3,7 +3,7 @@
 
 {% block app_content %}
 <head>
-    <title>Rechem Scraping</title>
+    <title>Test Celery Task</title>
     <style>
         .progress {
             width: 100%;
@@ -11,14 +11,14 @@
         }
     </style>
 </head>
-<h1>Rechem routine scraping</h1>
+<h1>Test</h1>
     {% if status_url %}
-    Rechem Scraping already running
+    Test already running
     {% else %}
-    <button id="start-bg-job">Start Rechem routine check</button><br><br>
+    <button id="start-bg-job">Start test</button><br><br>
     {% endif %}
 
-    <button id="kill-bg-job">Kill task</button><br><br>
+    <button id="kill-bg-job">Kill test</button><br><br>
 
     <div id="progress"></div>
     <div id="countdowntimer"></div>
@@ -29,7 +29,7 @@
 {% block scripts %}
     <script src="//cdnjs.cloudflare.com/ajax/libs/nanobar/0.2.1/nanobar.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-    <script src="{{ url_for('static', filename='js/rechem_routine_check.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/test_task.js') }}"></script>
     <script>
         {% if status_url %}
         document.addEventListener('DOMContentLoaded', function() {
