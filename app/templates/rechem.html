@@ -2,24 +2,20 @@
 {% import 'bootstrap/wtf.html' as wtf %}
 
 {% block app_content %}
-<head>
-    <title>Rechem Scraping</title>
-    <style>
-        .progress {
-            width: 100%;
-            text-align: center;
-        }
-    </style>
-</head>
-<h1>Rechem routine scraping</h1>
-    {% if status_url %}
-    Rechem Scraping already running
-    {% else %}
-    <button id="start-bg-job">Start Rechem routine check</button><br><br>
-    {% endif %}
+    <h1>Rechem Routine Scraping</h1>
 
-    <button id="kill-bg-job">Kill task</button><br><br>
+    <div id="start-button">
+        {% if status_url %}
+        Scraping is in progress
+        {% else %}
+        <button id="start-bg-job">Start scraping</button><br><br>
+        {% endif %}
+    </div>
+    <div id ="end-button">
+        <button id="kill-bg-job">Kill scraping</button><br><br>
+    </div>
 
+    <div id="status"></div>
     <div id="progress"></div>
     <div id="countdowntimer"></div>
     <div id="successes"></div>

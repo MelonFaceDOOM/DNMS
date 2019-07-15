@@ -11,21 +11,31 @@ function check_existing_task(status_url) {
 };
 
 $(document).on("click", "#start-bg-job", function start_task() {
+    // remove start button from page
+    $("#start-button").text("Test already running");
     // add task status elements
-    div = $('<div class="progress"><div></div><div>0%</div><div>...</div><div>&nbsp;</div></div><hr>');
+    div = $('<div class="progress"><div></div><div>0%</div><div>&nbsp;</div></div><hr>');
     $('#progress').append(div);
+
     // create a progress bar
     var nanobar = new Nanobar({
         bg: '#44f',
         target: div[0].childNodes[0]
     });
+
     // send ajax POST request to start background job
+    var scraper_name = "rechem";
     $.ajax({
         type: 'POST',
-        url: '/rechemroutinetask',
+        url: '/scraping/starttask',
+        data: {scraper_name: scraper_name},
         success: function(data, status, request) {
-            status_url = request.getResponseHeader('Location');
-            update_progress(status_url, nanobar, div[0]);
+            if (data == {}) {
+                alert(`No Scraper by name ${scraper_name} found`);
+            } else {
+                status_url = request.getResponseHeader('Location');
+                update_progress(status_url, nanobar, div[0]);
+            }
         },
         error: function() {
             alert('Unexpected error');
@@ -33,29 +43,31 @@ $(document).on("click", "#start-bg-job", function start_task() {
     });
 });
 
-function update_progress(status_url, nanobar, status_div) {
-    // send GET request to status URL
-    $.getJSON(status_url, function(data) {
-        // update UI
 
-        // update basic progress stats
+function update_progress(status_url, nanobar, status_div) {
+     // send GET request to status URL
+    $.getJSON(status_url, function(data) {
+        //end function if no scraper found
+        if (data['state'] == "Scraper not found") {
+            alert(`No scraper associated with status_url: ${status_url}`);
+            return;
+        }
         percent = parseInt(data['current'] * 100 / data['total']);
         nanobar.go(percent);
         $(status_div.childNodes[1]).text(percent + '%');
-        $(status_div.childNodes[2]).text(data['status']);
+
+        $("#status").text(data['status']);
         $('#successes').text('Successes: ' + data['successes']);
         $('#failures').text('Failures: ' + data['failures']);
-
-        // check if status is pending or progress
-        if (data['state'] != 'PENDING' && data['state'] != 'PROGRESS') {
-            if ('result' in data) {
-                // show result
-                $(status_div.childNodes[3]).text('Result: ' + data['result']);
-            }
-            else {
-                // something unexpected happened
-                $(status_div.childNodes[3]).text('Result: ' + data['state']);
-            }
+        // if success or unexpected result
+        if (data['state'] != 'PENDING' && data['state'] != 'PROGRESS' && data['state'] != "SUCCESS") {
+            // something unexpected happened
+            $("#status").text(`Unexpected error. Task state is: ${data['state']}`);
+        }
+        else if (data['state'] == "SUCCESS") {
+            // remove start button from page
+            $("#start-button").text("Test completed");
+            $("#end-button").text("")
         }
         else if (data['state'] == "PENDING") {
             // rerun in 1 seconds
@@ -83,11 +95,13 @@ function update_progress(status_url, nanobar, status_div) {
 };
 
 $(document).on("click", "#kill-bg-job",function kill_task(task_id) {
+    var scraper_name = "rechem";
     $.ajax({
         type: 'POST',
-        url: '/kill_task/'+task_id,
-        success: function() {
-            alert("task killed")
+        url: '/scraping/kill_task',
+        data: {scraper_name: scraper_name},
+        success: function(data, status, request) {
+            alert("task killed");
         },
         error: function() {
             alert('Unexpected error');

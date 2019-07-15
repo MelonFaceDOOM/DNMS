@@ -1,48 +1,75 @@
-from flask import render_template, flash, redirect, url_for, request, current_app
+from flask import render_template, flash, redirect, url_for, request, current_app, jsonify, json
 from flask_login import login_required
 from app import db
 from app.models import Country, Drug, Listing, Market, Page
 from app.scraping import bp
 from app.scraping.forms import CreateMockDataForm
+from app.scraping import mock_data
 import numpy as np
 from random import randrange, randint
 from datetime import datetime, timedelta
-import app.scraping.mock_data as mock_data
 import sqlite3
 import ast
 import pandas as pd
 
 @bp.route('/test_task')
+@login_required
 def test_task():
+    scraper_name = "test"
+    scraper = current_app.scrapers[scraper_name]
+
+    if scraper.is_running():
+        status_url = url_for("scraping.check_status", scraper_name=scraper_name)  # signals that task is running
+    else:
+        status_url = None  # also works signal that indicates there is no task running
+
+    return render_template('test.html', status_url=status_url)
+
+@bp.route('/rechem')
+@login_required
+def rechem():
     scraper_name = "rechem"
-    try:
-        status_url = url_for("scraping.check_status", scraper_name=scraper_name)
-    except:
-        status_url = None
+    scraper = current_app.scrapers[scraper_name]
 
-    return render_template('rechem_routine_check.html', status_url=status_url)
+    if scraper.is_running():
+        status_url = url_for("scraping.check_status", scraper_name=scraper_name)  # signals that task is running
+    else:
+        status_url = None  # also works signal that indicates there is no task running
+
+    return render_template('rechem.html', status_url=status_url)
 
 
-@bp.route('/starttesttask', methods=['POST'])
+@bp.route('/starttask', methods=['POST'])
+@login_required
 def starttesttask():
-    scraper_name = request.args.get('scraper_name', None)
-    try:
-        scraper = current_app.scrapers[scraper_name]
+    scraper_name = request.form.get('scraper_name', None)
+    scraper = current_app.scrapers[scraper_name]
+    if scraper.is_running():
+        status_url = url_for("scraping.check_status", scraper_name=scraper_name)  # signals that task is running
+        return jsonify({}), 202, {'Location': status_url}
+    else:
+        status_url = None  # also works signal that indicates there is no task running
         response = scraper.start_task()
         return response
-    except:
-        # if no scraper is found, response will be empty
-        response = {}
-    return response
 
-@bp.route('/check_status/<scraper_name>', methods=['POST'])
+@bp.route('/kill_task', methods=['POST'])
+@login_required
+def kill_task():
+    scraper_name = request.form.get('scraper_name', None)
+    scraper = current_app.scrapers[scraper_name]
+    if scraper.is_running():
+        scraper.kill_task()
+    return jsonify({}), 202
+
+
+@bp.route('/check_status/<scraper_name>', methods=['GET'])
 @login_required
 def check_status(scraper_name):
     try:
         scraper = current_app.scrapers[scraper_name]
     except:
-        return {}
-    return scraper.status()
+        return jsonify({'state': "Scraper not found"})
+    return jsonify(scraper.status())
 
 
 

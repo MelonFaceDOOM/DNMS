@@ -67,12 +67,17 @@ def rechem_routine_task(self):
 
 @celery.task(bind=True)
 def test_task(self):
-    for i in range(1000):
-        logging.info("on loop {}".format(i))
+
+    self.update_state(state='PENDING',
+                      meta={'status': "Beginning loop"})
+    total = 20
+    for i in range(total):
+        logging.info("on loop {}".format(i+1))
+        status = "Working through task {} of {}".format(i + 1, total)
         self.update_state(state='PROGRESS',
-                          meta={'current': i+1, 'total': 1000, 'successes': 0,
-                                'failures': 0, 'sleeptime': 3, 'status': "waiting"})
+                          meta={'current': i+1, 'total': total, 'successes': 0,
+                                'failures': 0, 'sleeptime': 3, 'status': status})
         time.sleep(3)
     self.update_state(state='SUCCESS')
-    return {'current': 1000, 'total': 1000, 'successes': 0, 'failures': 0,
+    return {'current': i+1, 'total': total, 'successes': 0, 'failures': 0,
             'status': 'Completed', 'result': 42}
