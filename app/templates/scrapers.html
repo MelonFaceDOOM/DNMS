@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block app_content %}
+<h1>Scrapers</h1>
+
+<table class="table table-condensed" id="Scrapers">
+    <tr>
+        <th>Task Name</th>
+        <th>Currently Running</th>
+    </tr>
+    {% for key, scraper in scrapers.items() %}
+    <tr>
+        <td id="scraper_name{{ scraper.name }}">
+            <a href="{{ url_for('scraping.{}'.format(scraper.name)) }}">{{ scraper.name }}</a>
+        </td>
+        <td id="scraper_status{{ scraper.name }}">{{ scraper.is_running() }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

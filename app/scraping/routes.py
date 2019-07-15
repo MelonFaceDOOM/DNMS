@@ -12,9 +12,23 @@ import sqlite3
 import ast
 import pandas as pd
 
-@bp.route('/test_task')
+
+@bp.route('/scrapers')
 @login_required
-def test_task():
+def scrapers():
+    return render_template("scrapers.html", scrapers=current_app.scrapers)
+
+
+@bp.route('/raw_results/<page_id>')
+@login_required
+def raw_results(page_id):
+    page = Page.query.filter_by(id=page_id).first()
+    return render_template("raw_results.html", page=page)
+
+
+@bp.route('/test')
+@login_required
+def test():
     scraper_name = "test"
     scraper = current_app.scrapers[scraper_name]
 
@@ -28,15 +42,27 @@ def test_task():
 @bp.route('/rechem')
 @login_required
 def rechem():
+    # It might make sense to eventually just have one task page that takes a task_name argument, but I'm not sure
+    # How different the templates will be for different tasks. I imagine a crawler for a dark net site might
+    # Be significantly different, so I don't think it would run off the same template
     scraper_name = "rechem"
     scraper = current_app.scrapers[scraper_name]
+    market = Market.query.filter_by(name="rechem_real").first()  # TODO: replace with "scraper_name"
+    page = request.args.get('page', 1, type=int)
+    pages = market.latest_pages().paginate(page, 50, False)
+    next_url = url_for('scraping.rechem', page=pages.next_num) \
+        if pages.has_next else None
+    prev_url = url_for('scraping.rechem', page=pages.prev_num) \
+        if pages.has_prev else None
 
+    # TODO: include a button to run a task to re-check all listings on rechem
     if scraper.is_running():
         status_url = url_for("scraping.check_status", scraper_name=scraper_name)  # signals that task is running
     else:
-        status_url = None  # also works signal that indicates there is no task running
+        status_url = None  # signals that there is no task running
 
-    return render_template('rechem.html', status_url=status_url)
+    return render_template('rechem.html', status_url=status_url, pages=pages.items,
+                           prev_url=prev_url, next_url=next_url)
 
 
 @bp.route('/starttask', methods=['POST'])
@@ -59,7 +85,10 @@ def kill_task():
     scraper = current_app.scrapers[scraper_name]
     if scraper.is_running():
         scraper.kill_task()
-    return jsonify({}), 202
+        response = "task killed"
+    else:
+        response = "no task found"
+    return jsonify({'response': response}), 202
 
 
 @bp.route('/check_status/<scraper_name>', methods=['GET'])

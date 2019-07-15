@@ -134,7 +134,7 @@ class Market(db.Model):
     def pages(self):
         return Page.query.filter(Page.listing_id.in_([listing.id for listing in self.listings]))
 
-    def latest_pages(self):
+    def latest_page_for_each_listing(self):
         """creates a list with the latest page for each listing
         orders this list so the oldest is first
         returns this ordered list"""
@@ -147,6 +147,9 @@ class Market(db.Model):
         # sort so oldest is first:
         ordered_pages = sorted(latest_page_for_each_listing, key=lambda x: x.timestamp, reverse=False)
         return ordered_pages
+
+    def latest_pages(self):
+        return self.pages().order_by(Page.timestamp.desc())
 
 
 class Listing(db.Model):

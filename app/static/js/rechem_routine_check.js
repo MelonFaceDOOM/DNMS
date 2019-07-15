@@ -39,6 +39,7 @@ $(document).on("click", "#start-bg-job", function start_task() {
         },
         error: function() {
             alert('Unexpected error');
+            location.reload();
         }
     });
 });
@@ -71,7 +72,7 @@ function update_progress(status_url, nanobar, status_div) {
         }
         else if (data['state'] == "PENDING") {
             // rerun in 1 seconds
-            setTimeout(function() {
+            timeout = setTimeout(function() {
                 update_progress(status_url, nanobar, status_div);
             }, 1000);
         }
@@ -87,7 +88,7 @@ function update_progress(status_url, nanobar, status_div) {
                 }
             }, 1000);
             // wait until sleeptime is complete
-            setTimeout(function() {
+            timeout = setTimeout(function() {
                 update_progress(status_url, nanobar, status_div);
             }, data['sleeptime'] * 1000);
         };
@@ -101,7 +102,16 @@ $(document).on("click", "#kill-bg-job",function kill_task(task_id) {
         url: '/scraping/kill_task',
         data: {scraper_name: scraper_name},
         success: function(data, status, request) {
-            alert("task killed");
+            if (data['response'] == "task killed") {
+                clearTimeout(timeout)
+                alert("task killed");
+            }
+            else if (data['response'] == "no task found") {
+                alert("No task was running");
+            }
+            else {
+                alert("Unexpected response from kill route")
+            }
         },
         error: function() {
             alert('Unexpected error');

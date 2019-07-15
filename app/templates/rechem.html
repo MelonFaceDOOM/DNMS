@@ -20,6 +20,39 @@
     <div id="countdowntimer"></div>
     <div id="successes"></div>
     <div id="failures"></div>
+
+    <h1>Rechem Results</h1>
+    <table class="table table-condensed" id="Results">
+        <tr>
+            <th>Drug</th>
+            <th>url</th>
+            <th>Date Scraped</th>
+        </tr>
+        {% for page in pages %}
+        <tr>
+            <td>{{ page.listing.drug.name }}</td>
+            <td>
+                <a href="{{ page.listing.url }}">{{ page.listing.url }}</a>
+            </td>
+            <td>
+                <a href="{{ url_for('scraping.raw_results', page_id=page.id) }}">{{ page.timestamp }}</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    <nav aria-label="...">
+        <ul class="pager">
+            <li class="previous{% if not prev_url %} disabled{% endif %}">
+                <a href="{{ prev_url or '#' }}">
+                    <span aria-hidden="true">&larr;</span> Older results
+                </a>
+            </li>
+            <li class="next{% if not next_url %} disabled{% endif %}">
+                <a href="{{ next_url or '#' }}">
+                    Newer results <span aria-hidden="true">&rarr;</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
 {% endblock %}
 
 {% block scripts %}

@@ -22,7 +22,7 @@ def rechem_routine_task(self):
 
     # find market and pages to scrape
     rechem = Market.query.filter_by(name="rechem_real").first()
-    latest_pages = rechem.latest_pages()
+    latest_pages = rechem.latest_page_for_each_listing()
     total = len(latest_pages)
 
     self.update_state(state='PENDING',
