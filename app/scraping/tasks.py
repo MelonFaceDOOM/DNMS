@@ -47,20 +47,34 @@ def rechem_routine_task(self):
 
     for page in latest_pages:
         pages_processed += 1
-        content = rget(page.listing.url, session)
+        url = page.listing.url
+
+        self.update_state(state='PROGRESS',
+                          meta={'current': pages_processed, 'total': total, 'successes': successes,
+                                'failures': failures, 'url': url, 'sleeptime': 0,
+                                'status': "Attempting to scrape {}".format(url)})
+
+        content = rget(url, session)  # note that automatic retries are part of rget
+
+
         if content is None:
             logging.warning("Unable to reach product: {}".format(page.listing.url))
             failures += 1
+            status = "Failed to reach {}".format(url)
         else:
             db.session.add(Page(listing_id=page.listing_id, html=content.text))
             db.session.commit()
             successes += 1
+            status = "Successfully scraped {} \n waiting before attempting next page".format(url)
 
         sleeptime = randint(120, 240)
-        self.update_state(state='PROGRESS',
-                          meta={'current': pages_processed, 'total': total, 'successes': successes,
-                                'failures': failures, 'sleeptime': sleeptime, 'status': "waiting"})
-        sleep(sleeptime)
+        for remaining in range(sleeptime, 0, -1):
+            self.update_state(state='PROGRESS',
+                              meta={'current': pages_processed, 'total': total, 'successes': successes,
+                                    'failures': failures, 'url': url, 'sleeptime': remaining,
+                                    'status': status})
+            sleep(1)
+
     self.update_state(state='SUCCESS')
     return {'current': pages_processed, 'total': total, 'successes': successes, 'failures': failures,
             'status': 'Completed attempting to scrape all known pages', 'result': 42}
