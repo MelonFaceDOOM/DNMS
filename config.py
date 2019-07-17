@@ -18,3 +18,4 @@ class Config(object):
     UPLOAD_FOLDER = os.path.join(basedir, "app/static/images")
     CELERY_BROKER_URL = 'redis://localhost:6379/0'
     CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+    LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT')
