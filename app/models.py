@@ -155,7 +155,7 @@ class Market(db.Model):
 class Listing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.String(128))
-    market_id = db.Column(db.String(128), db.ForeignKey('market.id'))
+    market_id = db.Column(db.Integer, db.ForeignKey('market.id'))
     drug_id = db.Column(db.Integer, db.ForeignKey('drug.id'))
     seller = db.Column(db.String(128), index=True)
     origin_id = db.Column(db.Integer, db.ForeignKey('country.id'))
