@@ -169,7 +169,10 @@ class Listing(db.Model):
     # For now I will keep it at url=listing
 
     def latest_price(self):
-        return self.pages.order_by(Page.timestamp.desc()).first().price
+        if self.pages.count() > 0:
+            return self.pages.order_by(Page.timestamp.desc()).first().price
+        else:
+            return None
 
     def newest_page(self):
         return Page.query.filter_by(listing_id=self.id).order_by(Page.timestamp.desc()).first()
@@ -181,6 +184,6 @@ class Page(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
     price = db.Column(db.Float)
-    html = db.Column(db.String(128))  # TODO: verify that this won't cap the length
+    html = db.Column(db.String(10485760))  # TODO: verify that this won't cap the length
     listing_id = db.Column(db.Integer, db.ForeignKey('listing.id'))
     timestamp = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)

@@ -2,7 +2,7 @@
 
 1) clone repository
 2) python3 -m venv venv
-3) source venv/bin/activat
+3) source venv/bin/activate
 4) pip install -r requirements.txt
 5) flask run
 6) ./run-redis.sh

@@ -14,20 +14,17 @@ import pandas as pd
 
 
 @bp.route('/scrapers')
-@login_required
 def scrapers():
     return render_template("scrapers.html", scrapers=current_app.scrapers)
 
 
 @bp.route('/raw_results/<page_id>')
-@login_required
 def raw_results(page_id):
     page = Page.query.filter_by(id=page_id).first()
     return render_template("raw_results.html", page=page)
 
 
 @bp.route('/test')
-@login_required
 def test():
     scraper_name = "test"
     scraper = current_app.scrapers[scraper_name]
@@ -40,7 +37,6 @@ def test():
     return render_template('test.html', status_url=status_url)
 
 @bp.route('/rechem')
-@login_required
 def rechem():
     # It might make sense to eventually just have one task page that takes a task_name argument, but I'm not sure
     # How different the templates will be for different tasks. I imagine a crawler for a dark net site might
@@ -49,11 +45,18 @@ def rechem():
     scraper = current_app.scrapers[scraper_name]
     market = Market.query.filter_by(name="rechem_real").first()  # TODO: replace with "scraper_name"
     page = request.args.get('page', 1, type=int)
-    pages = market.latest_pages().paginate(page, 50, False)
-    next_url = url_for('scraping.rechem', page=pages.next_num) \
-        if pages.has_next else None
-    prev_url = url_for('scraping.rechem', page=pages.prev_num) \
-        if pages.has_prev else None
+
+    if market:
+        pages = market.latest_pages().paginate(page, 50, False)
+        next_url = url_for('scraping.rechem', page=pages.next_num) \
+            if pages.has_next else None
+        prev_url = url_for('scraping.rechem', page=pages.prev_num) \
+            if pages.has_prev else None
+        pages = pages.items
+    else:
+        pages = []
+        next_url = None
+        prev_url = None
 
     # TODO: include a button to run a task to re-check all listings on rechem
     if scraper.is_running():
@@ -61,7 +64,7 @@ def rechem():
     else:
         status_url = None  # signals that there is no task running
 
-    return render_template('rechem.html', status_url=status_url, pages=pages.items,
+    return render_template('rechem.html', status_url=status_url, pages=pages,
                            prev_url=prev_url, next_url=next_url)
 
 
@@ -268,69 +271,137 @@ def create_mock_listings(market_id):
     return render_template('create_mock_listings.html', market=market, drugs=drugs_not_in_market)
 
 
-@bp.route('/import_rechem_data/', methods=['GET', 'POST'])
+@bp.route("/sf4fefffdsf")
 @login_required
-def import_rechem_data():
-    c = sqlite3.connect('rechem_listings.db')
-    with open('rechem_drug_titles', 'r') as f:
-        s = f.read()
-        drug_title_dict = ast.literal_eval(s)
+def sf4fefffdsf():
+    c = sqlite3.connect('app.db')
 
+    countries = pd.read_sql_query("SELECT * FROM country", c)
+    new_countries = []
+    for i, row in countries.iterrows():
+        country = Country(name=row['name'], c2=row['c2'])
+        if not Country.query.filter_by(name=country.name).first():
+            new_countries.append(country)
+    db.session.add_all(new_countries)
+    db.session.commit()
 
-    rechem_pages = pd.read_sql_query("SELECT * FROM Listings", c)
-    rechem_listings = pd.read_sql_query("SELECT * FROM Listing_index", c)
+    drugs = pd.read_sql_query("SELECT * FROM drug", c)
+    new_drugs = []
+    for i, row in drugs.iterrows():
+        drug = Drug(name=row['name'])
+        if not Drug.query.filter_by(name=drug.name).first():
+            new_drugs.append(drug)
+    db.session.add_all(new_drugs)
+    db.session.commit()
 
+    markets = pd.read_sql_query("SELECT * FROM market", c)
+    new_markets = []
+    for i, row in markets.iterrows():
+        market = Market(name=row['name'])
+        if not Market.query.filter_by(name=market.name).first():
+            new_markets.append(market)
+    db.session.add_all(new_markets)
+    db.session.commit()
+
+    listings = pd.read_sql_query("SELECT * FROM listing", c)
+    rechem_listings = listings[listings['market_id'] == '4']
+
+    new_listings = []
     for i, row in rechem_listings.iterrows():
-        rechem_listings.loc[i, 'drug'] = drug_title_dict[row['title']]
+        market_name = markets[markets['id'] == int(row['market_id'])]['name'].item()
+        new_market_id = Market.query.filter_by(name=market_name).first().id
 
-    m = Market.query.filter_by(name="rechem_real").first()
-    if not m:
-        m = Market(name="rechem_real")
-        db.session.add(m)
-        db.session.commit()
-        print("market added")
+        drug_name = drugs[drugs['id'] == row['drug_id']]['name'].item()
+        new_drug_id = Drug.query.filter_by(name=drug_name).first().id
 
-    # delete existing data
-    # m.pages() needs to be deleted one at a time, as far as I can tell, whereas m.listings can be deleted all at once
-    # There is probably a way to delete m.pages() all at once, but it doesn't seem worth figuring out
-    # pages = m.pages()
-    # [db.session.delete(p) for p in pages]
-    # listings = m.listings
-    # listings.delete()
-    # db.session.commit()
+        listing = Listing(url=row['url'], seller=None, timestamp=row['timestamp'],
+                          market_id=new_market_id, drug_id=new_drug_id, origin_id=None)
+        if not Listing.query.filter_by(url=listing.url).first():
+            new_listings.append(listing)
+    db.session.add_all(new_listings)
+    db.session.commit()
 
-    print("{} listings and {} pages remaining".format(m.listings.count(), m.pages().count()))
+    # Get all pages with a listing id that is from the rechem market
+    pages = pd.read_sql_query("SELECT * FROM page", c)
+    rechem_pages = pages[pages['listing_id'].isin(rechem_listings['id'])]
 
-    listings = []
-    for i, row in rechem_listings.iterrows():
-        drug = Drug.query.filter_by(name=row['drug']).first()
-        if not drug:
-            db.session.add(Drug(name=row['drug']))
-            db.session.commit()
-        # check if listing for this url exists. if not, add it.
-        listing = Listing.query.filter_by(url=row['url']).first()
-        if not listing:
-            listings.append(Listing(url=row['url'], market=m, drug=drug))
-    if listings:
-        db.session.add_all(listings)
-        db.session.commit()
-        print("Listings added")
-
-    pages = []
+    new_pages = []
     for i, row in rechem_pages.iterrows():
-        original_listing = rechem_listings[rechem_listings['id'] == row['listing_index_id']]
-        url = original_listing['url'].item()
-        listing_name = original_listing['title'].item()
+        listing_url = listings[listings['id'] == int(row['listing_id'])]['url'].item()
+        new_listing_id = Listing.query.filter_by(url=listing_url).first().id
+        page = Page(name=row['name'], html=row['html'], timestamp=row['timestamp'], listing_id=new_listing_id)
+        if not Page.query.filter_by(listing_id=page.listing_id, timestamp=page.timestamp).first():
+            new_pages.append(page)
+        else:
+            print("page already found:")
+    db.session.add_all(new_pages)
+    db.session.commit()
+    return "data successfully added"
 
-        listing = Listing.query.filter_by(url=url).first()
-        # check if a page exsits for this time/listing. If not, add it.
-        timestamp = datetime.strptime(row['scraped_time'], "%Y-%m-%d %H:%M:%S")
-        page = Page.query.filter_by(listing=listing, timestamp=timestamp).first()
-        if not page:
-            pages.append(Page(html=row['page_text'], timestamp=timestamp, name=listing_name, listing=listing))
+# @bp.route('/import_rechem_data/', methods=['GET', 'POST'])
+# @login_required
+# def import_rechem_data():
+#     c = sqlite3.connect('rechem_listings.db')
+#     with open('rechem_drug_titles', 'r') as f:
+#         s = f.read()
+#         drug_title_dict = ast.literal_eval(s)
+#
+#
+#     rechem_pages = pd.read_sql_query("SELECT * FROM Listings", c)
+#     rechem_listings = pd.read_sql_query("SELECT * FROM Listing_index", c)
+#
+#     for i, row in rechem_listings.iterrows():
+#         rechem_listings.loc[i, 'drug'] = drug_title_dict[row['title']]
+#
+#     m = Market.query.filter_by(name="rechem_real").first()
+#     if not m:
+#         m = Market(name="rechem_real")
+#         db.session.add(m)
+#         db.session.commit()
+#         print("market added")
+#
+#     # delete existing data
+#     # m.pages() needs to be deleted one at a time, as far as I can tell, whereas m.listings can be deleted all at once
+#     # There is probably a way to delete m.pages() all at once, but it doesn't seem worth figuring out
+#     # pages = m.pages()
+#     # [db.session.delete(p) for p in pages]
+#     # listings = m.listings
+#     # listings.delete()
+#     # db.session.commit()
+#
+#     print("{} listings and {} pages remaining".format(m.listings.count(), m.pages().count()))
+#
+#     listings = []
+#     for i, row in rechem_listings.iterrows():
+#         drug = Drug.query.filter_by(name=row['drug']).first()
+#         if not drug:
+#             db.session.add(Drug(name=row['drug']))
+#             db.session.commit()
+#         # check if listing for this url exists. if not, add it.
+#         listing = Listing.query.filter_by(url=row['url']).first()
+#         if not listing:
+#             listings.append(Listing(url=row['url'], market=m, drug=drug))
+#     if listings:
+#         db.session.add_all(listings)
+#         db.session.commit()
+#         print("Listings added")
+#
+#     pages = []
+#     for i, row in rechem_pages.iterrows():
+#         original_listing = rechem_listings[rechem_listings['id'] == row['listing_index_id']]
+#         url = original_listing['url'].item()
+#         listing_name = original_listing['title'].item()
+#
+#         listing = Listing.query.filter_by(url=url).first()
+#         # check if a page exsits for this time/listing. If not, add it.
+#         timestamp = datetime.strptime(row['scraped_time'], "%Y-%m-%d %H:%M:%S")
+#         page = Page.query.filter_by(listing=listing, timestamp=timestamp).first()
+#         if not page:
+#             pages.append(Page(html=row['page_text'], timestamp=timestamp, name=listing_name, listing=listing))
+#
+#     if pages:
+#         db.session.add_all(pages)
+#         db.session.commit()
+#         print("Pages added")
+#         return '', 204
 
-    if pages:
-        db.session.add_all(pages)
-        db.session.commit()
-        print("Pages added")
-        return '', 204

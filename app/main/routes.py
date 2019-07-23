@@ -7,7 +7,6 @@ from app.main.forms import EditProfileForm, SearchForm
 from app.main.graphs import create_plot
 import os
 from app.scraping.tasks import rechem_routine_task
-from celery.task.control import revoke
 
 @bp.before_app_request
 def before_request():
@@ -19,10 +18,9 @@ def favicon():
     return send_from_directory(os.path.join(current_app.root_path, 'static'),
                                'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
-@bp.route('/', methods=['GET', 'POST'])
-@bp.route('/index', methods=['GET', 'POST'])
+@bp.route('/')
+@bp.route('/index')
 @bp.route('/data_summary')
-@login_required
 def index():
     markets = Market.query.all()
     return render_template('data_summary.html', markets=markets)
@@ -60,14 +58,12 @@ def search():
     return render_template('search.html', title='Search')
 
 @bp.route('/drugs')
-@login_required
 def drugs():
     drugs = Drug.query.all()
     markets = Market.query.all()
     return render_template('drugs.html', drugs=drugs, markets=markets, title="Drugs")
 
 @bp.route('/drug')
-@login_required
 def drug():
     market_id = request.args.get('market_id', None)
     drug_id = request.args.get('drug_id', None)
@@ -119,89 +115,3 @@ def create_market():
     # TODO: may be better to return ('', 204) for this. We may want to delete through this route in the future on
     # TODO: a different page and not return the table. Create a separate route to get markets and render table
     return render_template('_data_summary_table.html', markets=markets)
-
-
-@bp.route('/rechem_routine_check', methods=['GET', 'POST'])
-def rechem_routine_check():
-    try:
-        task_id = current_app.rechem_task_id
-        if task_id:
-            status_url = url_for('main.taskstatus', task_id=task_id)
-        else:
-            status_url = None
-    except AttributeError:
-        status_url = None
-
-    return render_template('rechem_routine_check.html', status_url=status_url)
-
-
-@bp.route('/rechemroutinetask', methods=['POST'])
-def rechemroutinetask():
-    """starts the task and returns basic info"""
-    try:
-        task_id = current_app.rechem_task_id
-        flash("Rechem scraping is already running")
-        return ('', 204)
-    except AttributeError:
-        task = rechem_routine_task.apply_async()
-        current_app.rechem_task_id = task.id
-        return jsonify({}), 202, {'Location': url_for('main.taskstatus', task_id=task.id)}
-
-
-@bp.route('/status/<task_id>')
-def taskstatus(task_id):
-    """checks task status and returns info"""
-    task = rechem_routine_task.AsyncResult(task_id)
-    if task.state == 'PENDING':
-        response = {
-            'state': task.state,
-            'current': 0,
-            'successes': 0,
-            'failures': 0,
-            'total': 1,
-            'sleeptime': 0,
-            'status': 'Pending...'
-        }
-    elif task.state != 'SUCCESS':
-        current_app.rechem_task_id = None  # update global tracker to remove task
-        response = {
-            'state': task.state,
-            'current': task.info.get('current', 0),
-            'total': task.info.get('total', 1),
-            'successes': task.info.get('successes', 0),
-            'failures': task.info.get('failures', 0),
-            'sleeptime': task.info.get('sleeptime', 0),
-            'status': task.info.get('status', '')
-        }
-    elif task.state != 'FAILURE':
-        current_app.rechem_task_id = None  # update global tracker to remove task
-        response = {
-            'state': task.state,
-            'current': task.info.get('current', 0),
-            'total': task.info.get('total', 1),
-            'successes': task.info.get('successes', 0),
-            'failures': task.info.get('failures', 0),
-            'sleeptime': task.info.get('sleeptime', 0),
-            'status': task.info.get('status', '')
-        }
-        if 'result' in task.info:
-            response['result'] = task.info['result']
-    else:
-        current_app.rechem_task_id = None  # update global tracker to remove task
-        # something went wrong in the background job
-        response = {
-            'state': task.state,
-            'current': 1,
-            'successes': 0,
-            'failures': 0,
-            'total': 1,
-            'sleeptime': 0,
-            'status': str(task.info),  # this is the exception raised
-        }
-    return jsonify(response)
-
-
-@bp.route('/kill_task/<task_id>', methods=['POST'])
-def kill_task(task_id):
-    revoke(task_id, terminate=True)
-    return '', 204

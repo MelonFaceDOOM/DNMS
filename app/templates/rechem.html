@@ -4,6 +4,7 @@
 {% block app_content %}
     <h1>Rechem Routine Scraping</h1>
 
+    {% if current_user.is_authenticated %}
     <div id="start-button">
         {% if status_url %}
         Scraping is in progress
@@ -14,6 +15,7 @@
     <div id ="end-button">
         <button id="kill-bg-job">Kill scraping</button><br><br>
     </div>
+    {% endif %}
 
     <div id="status"></div>
     <div id="progress"></div>

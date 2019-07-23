@@ -2,6 +2,8 @@
 
 *.pyo
 
+.env
+
 venv/
 
 logs/
