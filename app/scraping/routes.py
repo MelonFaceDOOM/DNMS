@@ -11,11 +11,25 @@ from datetime import datetime, timedelta
 import sqlite3
 import ast
 import pandas as pd
+import redis
+
+# assuming rs is your redis connection
+def is_redis_available():
+    r = redis.Redis("127.0.0.1", socket_connect_timeout=1)  # short timeout for the test
+    try:
+        r.ping()
+        return True
+    except redis.exceptions.ConnectionError:
+        return False
 
 
 @bp.route('/scrapers')
 def scrapers():
-    return render_template("scrapers.html", scrapers=current_app.scrapers)
+    if is_redis_available():
+        redis_running = True
+    else:
+        redis_running = False
+    return render_template("scrapers.html", scrapers=current_app.scrapers, redis_running=redis_running)
 
 
 @bp.route('/raw_results/<page_id>')
