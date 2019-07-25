@@ -16,6 +16,8 @@ class Config(object):
     THREADS_PER_PAGE = 25
     CATEGORIES_PER_PAGE = 25
     UPLOAD_FOLDER = os.path.join(basedir, "app/static/images")
-    CELERY_BROKER_URL = 'redis://localhost:6379/0'
-    CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+    CELERY_BROKER_URL = os.environ.get('REDIS_URL') or \
+                        "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL') or \
+                        "redis://localhost:6379/0"
     LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT')
