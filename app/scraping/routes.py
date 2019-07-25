@@ -15,7 +15,7 @@ import redis
 
 # assuming rs is your redis connection
 def is_redis_available():
-    r = redis.Redis("127.0.0.1", socket_connect_timeout=1)  # short timeout for the test
+    r = redis.Redis(host=current_app.config['CELERY_BROKER_URL'], socket_connect_timeout=1)  # short timeout for the test
     try:
         r.ping()
         return True
