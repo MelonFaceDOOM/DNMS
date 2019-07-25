@@ -19,10 +19,10 @@ def is_redis_available():
     pattern = "(redis:\/\/)(h:)*([-@A-z0-9.]+):([0-9]+)(\/0)*"
     match = re.match(pattern, current_app.config['CELERY_BROKER_URL'])
     url = match.groups()[2]
-    if match.groups()[1] is not None:
-        url = match.groups()[1] + url
+    # if match.groups()[1] is not None:
+    #     url = match.groups()[1] + url
     port = match.groups()[3]
-    print(url,port)
+    print(url, port)
     r = redis.Redis(host=url, port=port, socket_connect_timeout=1)  # short timeout for the test
     try:
         r.ping()
