@@ -23,7 +23,8 @@ def is_redis_available():
     #     url = match.groups()[1] + url
     port = match.groups()[3]
     print(url, port)
-    r = redis.Redis(host=url, port=port, socket_connect_timeout=1)  # short timeout for the test
+    #r = redis.Redis(host=url, port=port, socket_connect_timeout=1)  # short timeout for the test
+    r = redis.from_url(current_app.config['CELERY_BROKER_URL'])
     try:
         r.ping()
         return True
