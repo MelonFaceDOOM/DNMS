@@ -1,0 +1,19 @@
+sudo docker run --name redis -d -p 6379:6379 redis:3-alpine
+
+sudo docker run --name mysql -d -e MYSQL_RANDOM_ROOT_PASSWORD=yes \
+    -e MYSQL_DATABASE=dnms -e MYSQL_USER=dnms \
+    -e MYSQL_PASSWORD=calgary \
+    mysql/mysql-server:5.7
+	
+sudo docker run --name dnms -d -p 8000:5000 --rm -e SECRET_KEY=my-secret-key \
+    --link mysql:dbserver --link redis:redis-server \
+    -e DATABASE_URL=mysql+pymysql://dnms:calgary@dbserver/dnms \
+    -e REDIS_URL=redis://redis-server:6379/0 \
+    dnms:latest
+	
+sudo docker run --name celery-worker -d --rm -e SECRET_KEY=my-secret-key \
+    --link mysql:dbserver --link redis:redis-server \
+    -e DATABASE_URL=mysql+pymysql://dnms:calgary@dbserver/dnms \
+    -e REDIS_URL=redis://redis-server:6379/0 \
+    --entrypoint venv/bin/celery \
+    dnms:latest worker -A DNMS.celery --loglevel=info

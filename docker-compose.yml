@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  mysql:
+    image: mysql:5.7
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
+      - MYSQL_DATABASE=dnms
+      - MYSQL_USER=dnms
+      - MYSQL_PASSWORD=calgary
+    restart: always
+  redis:
+    image: "redis:3-alpine"
+    ports:
+      - "6379:6379"
+    restart: always
+  dnms:
+    build: .
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8000:5000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://dnms:calgary@dbserver/dnms
+      - REDIS_URL=redis://redis-server:6379/0 \
+      - SECRET_KEY=my-secret-key
+    image: dnms:latest
+    restart: always
+  celery:
+    build: .
+    command: celery worker -A DNMS.celery --loglevel=info
+    depends_on:
+      - mysql
+      - redis
+
+

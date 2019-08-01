@@ -6,6 +6,7 @@ import jwt
 from app import db, login
 from app.search import add_to_index, remove_from_index, query_index
 from sqlalchemy.orm import validates
+from sqlalchemy.dialects.mysql import LONGTEXT
 import datetime
 
 
@@ -184,6 +185,6 @@ class Page(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
     price = db.Column(db.Float)
-    html = db.Column(db.String(10485760))  # TODO: verify that this won't cap the length
+    html = db.Column(db.TEXT())  # TODO: verify that this won't cap the length
     listing_id = db.Column(db.Integer, db.ForeignKey('listing.id'))
     timestamp = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)
