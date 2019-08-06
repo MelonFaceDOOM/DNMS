@@ -185,6 +185,6 @@ class Page(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
     price = db.Column(db.Float)
-    html = db.Column(db.TEXT())  # TODO: verify that this won't cap the length
+    html = db.Column(db.TEXT(collation='utf8mb4_unicode_ci'))
     listing_id = db.Column(db.Integer, db.ForeignKey('listing.id'))
     timestamp = db.Column(db.DateTime, index=True, default=datetime.datetime.utcnow)

@@ -297,8 +297,7 @@ def create_mock_listings(market_id):
 @bp.route("/sf4fefffdsf")
 @login_required
 def sf4fefffdsf():
-    c = sqlite3.connect('app.db')
-
+    c = sqlite3.connect('app/rechem_listings.db')
     countries = pd.read_sql_query("SELECT * FROM country", c)
     new_countries = []
     for i, row in countries.iterrows():

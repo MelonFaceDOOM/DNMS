@@ -21,6 +21,7 @@ def rechem_routine_task(self):
                       meta={'status': "Prioitizing page scraping queue"})
 
     # find market and pages to scrape
+    # TODO: create clear error message in rechem market is not found
     rechem = Market.query.filter_by(name="rechem_real").first()
     latest_pages = rechem.latest_page_for_each_listing()
     total = len(latest_pages)
