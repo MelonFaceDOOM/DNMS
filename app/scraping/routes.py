@@ -90,6 +90,9 @@ def rechem():
     return render_template('rechem.html', status_url=status_url, pages=pages,
                            prev_url=prev_url, next_url=next_url)
 
+@bp.route('/temp')
+def temp():
+    return render_template('temp.html')
 
 @bp.route('/starttask', methods=['POST'])
 @login_required

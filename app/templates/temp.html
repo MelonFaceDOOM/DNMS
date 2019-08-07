@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block app_content %}
+    <h1>Rechem Routine Scraping</h1>
+
+    {% if current_user.is_authenticated %}
+    <div id="start-button">
+        {% if status_url %}
+        Scraping is in progress
+        {% else %}
+        <button id="start-bg-job">Start scraping</button><br><br>
+        {% endif %}
+    </div>
+    <div id ="end-button">
+        <button id="kill-bg-job">Kill scraping</button><br><br>
+    </div>
+    {% endif %}
+
+    <div id="status">currently running</div>
+    <br>
+    <div id="progress">nanobar placeholder</div>
+    <div>Next attempt in... <div id="countdowntimer">999</div></div>
+    <div id="next_url">Next url: next.com</div>
+    <div id="attempts">
+        There have been
+        <div id="successes">50</div>
+        successful page requests and
+        <div id="failures">20</div>
+        failures
+    </div>
+
+
+    <h1>Rechem Results</h1>
+    <table class="table table-condensed" id="Results">
+        <tr>
+            <th>Drug</th>
+            <th>url</th>
+            <th>Date Scraped</th>
+        </tr>
+        {% for page in pages %}
+        <tr>
+            <td>{{ page.listing.drug.name }}</td>
+            <td>
+                <a href="{{ page.listing.url }}">{{ page.listing.url }}</a>
+            </td>
+            <td>
+                <a href="{{ url_for('scraping.raw_results', page_id=page.id) }}">{{ page.timestamp }}</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    <nav aria-label="...">
+        <ul class="pager">
+            <li class="previous{% if not prev_url %} disabled{% endif %}">
+                <a href="{{ prev_url or '#' }}">
+                    <span aria-hidden="true">&larr;</span> Older results
+                </a>
+            </li>
+            <li class="next{% if not next_url %} disabled{% endif %}">
+                <a href="{{ next_url or '#' }}">
+                    Newer results <span aria-hidden="true">&rarr;</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+{% endblock %}

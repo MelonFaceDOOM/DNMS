@@ -9,11 +9,13 @@ class Scraper:
     def start_task(self):
         """starts the task and returns basic info"""
         if self.task_id:
-            if self.status()['state'] != "PENDING":
-                self.task_id = None
+            if self.status()['state'] != "PENDING" and self.status()['state'] != "PROGRESS":
+                self.task_id = None  # remove id if task is stale
         if self.task_id == None:
             task = self.task_func.apply_async()
             self.task_id = task.id
+            print(task.id)  # TODO: test to see what the task.id is in the case that there is no worker running
+                            # TODO: this may provide an easy way to identify if this is the case
         return jsonify({}), 202, {'Location': url_for('scraping.check_status', scraper_name=self.name)}
 
     def is_running(self):
@@ -39,62 +41,33 @@ class Scraper:
         except ValueError:
             return {'state': "NOT RUNNING"}
 
+        response = {
+            'state': task.state,
+            'current': task.info.get('current', 0),
+            'total': task.info.get('total', 1),
+            'successes': task.info.get('successes', 0),
+            'failures': task.info.get('failures', 0),
+            'sleeptime': task.info.get('sleeptime', 0),
+            'current_url': task.info.get('current_url', ""),
+            'next_url': task.info.get('next_url', ""),
+            'status': task.info.get('status', '')
+        }
+
         if task.state == 'PENDING':
-            response = {
-                'state': task.state,
-                'current': 0,
-                'successes': 0,
-                'failures': 0,
-                'total': 1,
-                'sleeptime': 0,
-                'status': 'Pending...'
-            }
-        elif task.state == 'PROGRESS':
-            response = {
-                'state': task.state,
-                'current': task.info.get('current', 0),
-                'total': task.info.get('total', 1),
-                'successes': task.info.get('successes', 0),
-                'failures': task.info.get('failures', 0),
-                'sleeptime': task.info.get('sleeptime', 0),
-                'status': task.info.get('status', '')
-            }
+            response['status'] = 'Pending...'
         elif task.state == 'SUCCESS':
             self.task_id = None
-            response = {
-                'state': task.state,
-                'current': task.info.get('current', 0),
-                'total': task.info.get('total', 1),
-                'successes': task.info.get('successes', 0),
-                'failures': task.info.get('failures', 0),
-                'sleeptime': task.info.get('sleeptime', 0),
-                'status': task.info.get('status', '')
-            }
+            response['current'] = 1
+            response['total'] = 1
         elif task.state == 'FAILURE':
             self.task_id = None
-            response = {
-                'state': task.state,
-                'current': task.info.get('current', 0),
-                'total': task.info.get('total', 1),
-                'successes': task.info.get('successes', 0),
-                'failures': task.info.get('failures', 0),
-                'sleeptime': task.info.get('sleeptime', 0),
-                'status': task.info.get('status', '')
-            }
             if 'result' in task.info:
                 response['result'] = task.info['result']
         else:
             self.task_id = None
             # something went wrong in the background job
-            response = {
-                'state': task.state,
-                'current': 1,
-                'successes': 0,
-                'failures': 0,
-                'total': 1,
-                'sleeptime': 0,
-                'status': str(task.info),  # this is the exception raised
-            }
+            response['status'] = str(task.info)  # this is the exception raised
+
         return response
 
     def kill_task(self):

@@ -46,33 +46,37 @@ def rechem_routine_task(self):
     session = requests.session()
     session.headers = headers
 
-    for page in latest_pages:
+    for i, page in enumerate(latest_pages):
         pages_processed += 1
-        url = page.listing.url
-
+        current_url = page.listing.url
+        next_url = ""
+        if i+1 < len(latest_pages):
+            next_url = latest_pages[i+1].listing.url
         self.update_state(state='PROGRESS',
                           meta={'current': pages_processed, 'total': total, 'successes': successes,
-                                'failures': failures, 'url': url, 'sleeptime': 0,
-                                'status': "Attempting to scrape {}".format(url)})
+                                'failures': failures, 'url': current_url, 'next_url': next_url, 'sleeptime': 0,
+                                'status': "Attempting to scrape {}".format(current_url)})
 
-        content = rget(url, session)  # note that automatic retries are part of rget
-
+        content = rget(current_url, session)  # note that automatic retries are part of rget
 
         if content is None:
             logging.warning("Unable to reach product: {}".format(page.listing.url))
             failures += 1
-            status = "Failed to reach {}".format(url)
+            status = "Failed to reach {}".format(current_url)
         else:
+            logging.info("attempting to add page with listing id: {} and html: {}".format(page.listing.id,
+                                                                                          content.text[:15]))
             db.session.add(Page(listing_id=page.listing_id, html=content.text))
+            # todo: test just using flask shell with mysql to add a page with just listing id and html
             db.session.commit()
             successes += 1
-            status = "Successfully scraped {} \n waiting before attempting next page".format(url)
+            status = "Successfully scraped {} \n waiting before attempting next page".format(current_url)
 
         sleeptime = randint(120, 240)
         for remaining in range(sleeptime, 0, -1):
             self.update_state(state='PROGRESS',
                               meta={'current': pages_processed, 'total': total, 'successes': successes,
-                                    'failures': failures, 'url': url, 'sleeptime': remaining,
+                                    'failures': failures, 'url': current_url, 'next_url': next_url, 'sleeptime': remaining,
                                     'status': status})
             sleep(1)
 

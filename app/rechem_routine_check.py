@@ -2,6 +2,8 @@ import sqlite3
 from datetime import datetime
 from random import randint
 from time import sleep
+import logging
+
 # Connect to database and create tables
 db_filepath = "rechem_listings.db"
 conn = sqlite3.connect(db_filepath)
