@@ -14,6 +14,10 @@
     display: inline;
 }
 
+#next_url {
+    display: inline;
+}
+
 #successes {
     color: rgb(60, 179, 113);
     display: inline;

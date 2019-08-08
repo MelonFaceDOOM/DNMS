@@ -93,10 +93,13 @@ def test_task(self):
     for i in range(total):
         logging.info("on loop {}".format(i+1))
         status = "Working through task {} of {}".format(i + 1, total)
-        self.update_state(state='PROGRESS',
-                          meta={'current': i+1, 'total': total, 'successes': 0,
-                                'failures': 0, 'sleeptime': 3, 'status': status})
-        time.sleep(3)
+        sleeptime=4
+        for remaining in range(sleeptime, 0, -1):
+            self.update_state(state='PROGRESS',
+                              meta={'current': i + 1, 'total': total, 'successes': i + 1,
+                                    'failures': 0, 'sleeptime': remaining, 'status': status})
+            sleep(1)
+
     self.update_state(state='SUCCESS')
-    return {'current': i+1, 'total': total, 'successes': 0, 'failures': 0,
-            'status': 'Completed', 'result': 42}
+    return {'current': i+1, 'total': total, 'successes': 5, 'failures': 0,
+            'status': 'Completed'}

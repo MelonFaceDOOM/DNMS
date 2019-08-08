@@ -23,11 +23,6 @@ moment = Moment()
 celery = Celery(__name__, broker=Config.CELERY_BROKER_URL)
 
 
-# TODO: will have to add more features to this, such as checking status and confirming if it is alive
-# TODO: probably move it to a separate file and declare the scrapers here
-
-
-
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)

@@ -4,9 +4,10 @@
 {% block app_content %}
     <h1>Test</h1>
 
+    {% if current_user.is_authenticated %}
     <div id="start-button">
         {% if status_url %}
-        Test already running
+        Test is in progress
         {% else %}
         <button id="start-bg-job">Start test</button><br><br>
         {% endif %}
@@ -14,12 +15,21 @@
     <div id ="end-button">
         <button id="kill-bg-job">Kill test</button><br><br>
     </div>
+    {% endif %}
 
-    <div id="status"></div>
+    <div id="status">Not running</div>
+    <br>
     <div id="progress"></div>
-    <div id="countdowntimer"></div>
-    <div id="successes"></div>
-    <div id="failures"></div>
+    <div>Next attempt in... <div id="countdowntimer"></div></div>
+    Next url: <div id="next_url"></div>
+    <div id="attempts">
+        There have been
+        <div id="successes"></div>
+        successful page requests and
+        <div id="failures"></div>
+        failures
+    </div>
+
 {% endblock %}
 
 {% block scripts %}

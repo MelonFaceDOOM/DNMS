@@ -1,4 +1,14 @@
 from flask import current_app, url_for, jsonify
+import redis
+import time
+
+def is_redis_available():
+    r = redis.from_url(current_app.config['CELERY_BROKER_URL'])
+    try:
+        r.ping()
+        return True
+    except redis.exceptions.ConnectionError:
+        return False
 
 class Scraper:
     def __init__(self, name, task_func):
@@ -6,20 +16,39 @@ class Scraper:
         self.task_id = None
         self.task_func = task_func
 
+    def assign_worker(self):
+        # TODO: replace this with a more definite check for whether or not a worker is available
+        task = self.task_func.apply_async()
+        retries = 0
+        while True:
+            time.sleep(0.2)
+            try:
+                task.info.get('current', 0)  # This succeeds if a worker picked up the task, and fails otherwise
+                self.task_id = task.id  # task_id is only set if a worker is confirmed to have picked up the task
+                return self.task_id
+            except AttributeError:
+                retries += 1
+            if retries > 15:
+                return None
+
     def start_task(self):
         """starts the task and returns basic info"""
+
+        if not is_redis_available():
+            return jsonify({}), 500, {'message-body': "Could not make connection to Redis"}
+
         if self.task_id:
             if self.status()['state'] != "PENDING" and self.status()['state'] != "PROGRESS":
                 self.task_id = None  # remove id if task is stale
         if self.task_id == None:
-            task = self.task_func.apply_async()
-            self.task_id = task.id
-            print(task.id)  # TODO: test to see what the task.id is in the case that there is no worker running
-                            # TODO: this may provide an easy way to identify if this is the case
-        return jsonify({}), 202, {'Location': url_for('scraping.check_status', scraper_name=self.name)}
+            if self.assign_worker():
+                return jsonify({}), 202, {'Location': url_for('scraping.check_status', scraper_name=self.name)}
+            else:
+                return jsonify({}), 500, {'message-body': "Redis is running, but a worker could not be assigned "
+                                                          "to the task"}
 
     def is_running(self):
-        # a harder check on whether or not this is running
+        # TODO: add a harder check on whether or not this is running
         if not self.task_id:
             return False
 
@@ -38,7 +67,7 @@ class Scraper:
         try:
             task = self.task_func.AsyncResult(self.task_id)
         # will result in ValueError is task_id is None
-        except ValueError:
+        except ValueError as e:
             return {'state': "NOT RUNNING"}
 
         response = {
@@ -55,6 +84,8 @@ class Scraper:
 
         if task.state == 'PENDING':
             response['status'] = 'Pending...'
+        elif task.state == 'PROGRESS':
+            pass
         elif task.state == 'SUCCESS':
             self.task_id = None
             response['current'] = 1
@@ -76,3 +107,4 @@ class Scraper:
         except ValueError:
             return None
         task.revoke(terminate=True)
+        self.task_id = None

@@ -2,34 +2,15 @@ from flask import render_template, flash, redirect, url_for, request, current_ap
 from flask_login import login_required
 from app import db
 from app.models import Country, Drug, Listing, Market, Page
-from app.scraping import bp
+from app.scraping import bp, mock_data
 from app.scraping.forms import CreateMockDataForm
-from app.scraping import mock_data
+from app.scraping.scraper import is_redis_available
 import numpy as np
 from random import randrange, randint
 from datetime import datetime, timedelta
 import sqlite3
 import ast
 import pandas as pd
-import redis
-import re
-
-# assuming rs is your redis connection
-def is_redis_available():
-    pattern = "(redis:\/\/)(h:)*([-@A-z0-9.]+):([0-9]+)(\/0)*"
-    match = re.match(pattern, current_app.config['CELERY_BROKER_URL'])
-    url = match.groups()[2]
-    # if match.groups()[1] is not None:
-    #     url = match.groups()[1] + url
-    port = match.groups()[3]
-    print(url, port)
-    #r = redis.Redis(host=url, port=port, socket_connect_timeout=1)  # short timeout for the test
-    r = redis.from_url(current_app.config['CELERY_BROKER_URL'])
-    try:
-        r.ping()
-        return True
-    except redis.exceptions.ConnectionError:
-        return False
 
 
 @bp.route('/scrapers')
@@ -96,14 +77,14 @@ def temp():
 
 @bp.route('/starttask', methods=['POST'])
 @login_required
-def starttesttask():
+def starttask():
     scraper_name = request.form.get('scraper_name', None)
     scraper = current_app.scrapers[scraper_name]
     if scraper.is_running():
         status_url = url_for("scraping.check_status", scraper_name=scraper_name)  # signals that task is running
         return jsonify({}), 202, {'Location': status_url}
     else:
-        status_url = None  # also works signal that indicates there is no task running
+        status_url = None  # also works as signal that indicates that there wasn't already a task running
         response = scraper.start_task()
         return response
 
