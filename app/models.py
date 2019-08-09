@@ -97,7 +97,7 @@ class Country(db.Model):
                       )
 
     @validates('c2')
-    def validate_c2(self, key, c2) -> str:  # todo - confirm purpose of 'key'
+    def validate_c2(self, key, c2) -> str:
         if len(c2) != 2:
             raise ValueError('c2 must be two characters')
         return c2

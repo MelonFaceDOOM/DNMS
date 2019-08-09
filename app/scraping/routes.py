@@ -22,12 +22,6 @@ def scrapers():
     return render_template("scrapers.html", scrapers=current_app.scrapers, redis_running=redis_running)
 
 
-@bp.route('/raw_results/<page_id>')
-def raw_results(page_id):
-    page = Page.query.filter_by(id=page_id).first()
-    return render_template("raw_results.html", page=page)
-
-
 @bp.route('/test')
 def test():
     scraper_name = "test"
@@ -71,9 +65,6 @@ def rechem():
     return render_template('rechem.html', status_url=status_url, pages=pages,
                            prev_url=prev_url, next_url=next_url)
 
-@bp.route('/temp')
-def temp():
-    return render_template('temp.html')
 
 @bp.route('/starttask', methods=['POST'])
 @login_required
@@ -87,6 +78,7 @@ def starttask():
         status_url = None  # also works as signal that indicates that there wasn't already a task running
         response = scraper.start_task()
         return response
+
 
 @bp.route('/kill_task', methods=['POST'])
 @login_required
@@ -111,6 +103,20 @@ def check_status(scraper_name):
     return jsonify(scraper.status())
 
 
+@bp.route('/raw_results/<page_id>')
+def raw_results(page_id):
+    page = Page.query.filter_by(id=page_id).first()
+    return render_template("raw_results.html", page=page)
+
+from app import celery
+@bp.route('/celery_tests')
+def celery_tests():
+    # inspect may only give information on tasks that have active workers.
+    # It's possible that there can be a task queued that hasn't yet been picked up by a worker
+    celery.current_app.control.inspect() # TODO if this doesn't work you might need to rename "from flask import current_app"
+    #len(app.control.inspect().active()['celery@default'])
+    #test inspect.reserved() for a task that is queued but not assigned
+    return "", 204
 
 ####################################
 ######### MOCK DATA ROUTES #########
@@ -343,6 +349,7 @@ def sf4fefffdsf():
     db.session.add_all(new_pages)
     db.session.commit()
     return "data successfully added"
+
 
 # @bp.route('/import_rechem_data/', methods=['GET', 'POST'])
 # @login_required
