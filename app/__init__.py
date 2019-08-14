@@ -47,9 +47,10 @@ def create_app(config_class=Config):
     from app.scraping import bp as scraping_bp
     from app.scraping.scraper import Scraper
     from app.scraping import tasks
+
     app.register_blueprint(scraping_bp, url_prefix='/scraping')
-    app.scrapers = {"rechem": Scraper(name="rechem", task_func=tasks.rechem_routine_task),
-                    "test": Scraper(name="test", task_func=tasks.test_task)}
+    app.scrapers = {"rechem": tasks.rechem_routine_task,
+                    "test_task": tasks.test_task}
 
     app.elasticsearch = Elasticsearch([app.config['ELASTICSEARCH_URL']]) \
         if app.config['ELASTICSEARCH_URL'] else None

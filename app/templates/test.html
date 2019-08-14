@@ -36,12 +36,4 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/nanobar/0.2.1/nanobar.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script src="{{ url_for('static', filename='js/test_task.js') }}"></script>
-    <script>
-        {% if status_url %}
-        document.addEventListener('DOMContentLoaded', function() {
-            var status_url = '{{status_url}}';
-            check_existing_task(status_url);
-        }, false);
-        {% endif %}
-    </script>
 {% endblock %}

@@ -11,12 +11,12 @@
         <th>Task Name</th>
         <th>Currently Running</th>
     </tr>
-    {% for key, scraper in scrapers.items() %}
+    {% for scraper_name, scraper_func in scrapers.items() %}
     <tr>
-        <td id="scraper_name{{ scraper.name }}">
-            <a href="{{ url_for('scraping.{}'.format(scraper.name)) }}">{{ scraper.name }}</a>
+        <td id="{{ scraper_name }}">
+            <a href="{{ url_for('scraping.{}'.format(scraper_name)) }}">{{ scraper_name }}</a>
         </td>
-        <td id="scraper_status{{ scraper.name }}">{{ scraper.is_running() }}</td>
+        <td>N/A</td>
     </tr>
     {% endfor %}
 </table>

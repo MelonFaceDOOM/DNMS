@@ -79,7 +79,7 @@ class Scraper:
             'sleeptime': task.info.get('sleeptime', 0),
             'current_url': task.info.get('current_url', ""),
             'next_url': task.info.get('next_url', ""),
-            'status': task.info.get('status', '')
+            'status': task.info.get('status', "")
         }
 
         if task.state == 'PENDING':

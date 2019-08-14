@@ -1,27 +1,44 @@
-function check_existing_task(status_url) {
+$(document).ready(function check_existing_task() {
     // add task status elements
-    div = $('<div class="progress"><div></div><div>0%</div><div>...</div><div>&nbsp;</div></div><hr>');
-    $('#progress').append(div);
-    // create a progress bar
-    var nanobar = new Nanobar({
-        bg: '#44f',
-        target: div[0].childNodes[0]
+    var scraper_name = "test_task";
+    $.ajax({
+        type: 'GET',
+        url: '/scraping/check_status/' + scraper_name,
+        success: function(data, status, request) {
+            if (data['state'] == "not running") {
+                return;
+            }
+            else {
+                // remove start button from page
+                $("#start-button").text("Test is in progress");
+                // add task status elements
+                div = $('<div class="progress"><div></div><div>0%</div><div>&nbsp;</div></div><hr>');
+                $('#progress').append(div);
+
+                // create a progress bar
+                var nanobar = new Nanobar({
+                    bg: '#44f',
+                    target: div[0].childNodes[0]
+                });
+                update_progress(nanobar, div[0]);
+            }
+        },
+        error: function(req, status, err) {
+            alert(req.responseText);
+        }
     });
-    update_progress(status_url, nanobar, div[0]);
-};
+});
 
 $(document).on("click", "#start-bg-job", function start_task() {
     // send ajax POST request to start background job
-    var scraper_name = "test";
+    var scraper_name = "test_task";
     $.ajax({
         type: 'POST',
         url: '/scraping/starttask',
         data: {scraper_name: scraper_name},
         success: function(data, status, request) {
-            status_url = request.getResponseHeader('Location');
-
             // remove start button from page
-            $("#start-button").text("Test is running");
+            $("#start-button").text("Test is in progress");
             // add task status elements
             div = $('<div class="progress"><div></div><div>0%</div><div>&nbsp;</div></div><hr>');
             $('#progress').append(div);
@@ -31,21 +48,22 @@ $(document).on("click", "#start-bg-job", function start_task() {
                 bg: '#44f',
                 target: div[0].childNodes[0]
             });
-            update_progress(status_url, nanobar, div[0]);
+            update_progress(nanobar, div[0]);
 
         },
         error: function(req, status, err) {
-            alert(req.getResponseHeader('message-body'));
+            alert(req.responseText);
         }
     });
 });
 
-function update_progress(status_url, nanobar, status_div) {
+function update_progress(nanobar, status_div) {
     // send GET request to status URL
+    var status_url = "/scraping/check_status/test_task"
     $.getJSON(status_url, function(data) {
         //end function if no scraper found
-        if (data['state'] == "Scraper not found") {
-            alert(`No scraper associated with status_url: ${status_url}`);
+        if (data['state'] == "not running") {
+            alert(`No scraper currently running that is associated with status_url: ${status_url}`);
             return;
         }
         percent = parseInt(data['current'] * 100 / data['total']);
@@ -70,7 +88,7 @@ function update_progress(status_url, nanobar, status_div) {
         else if (data['state'] == "PENDING") {
             // rerun in 1 seconds
             setTimeout(function() {
-                update_progress(status_url, nanobar, status_div);
+                update_progress(nanobar, status_div);
             }, 1000);
         }
         //start countdown timer and wait that amount of time
@@ -86,11 +104,12 @@ function update_progress(status_url, nanobar, status_div) {
             }, 1000);
             // wait until sleeptime is complete
             setTimeout(function() {
-                update_progress(status_url, nanobar, status_div);
+                update_progress(nanobar, status_div);
             }, data['sleeptime'] * 1000);
         };
     });
 };
+
 
 $(document).on("click", "#kill-bg-job",function kill_task(task_id) {
     var scraper_name = "test";

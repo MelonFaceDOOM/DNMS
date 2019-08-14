@@ -4,13 +4,116 @@ from app import db
 from app.models import Country, Drug, Listing, Market, Page
 from app.scraping import bp, mock_data
 from app.scraping.forms import CreateMockDataForm
-from app.scraping.scraper import is_redis_available
 import numpy as np
 from random import randrange, randint
 from datetime import datetime, timedelta
 import sqlite3
 import ast
 import pandas as pd
+import redis
+import re
+from app import celery as cel  # imports the object created when app is initialized
+
+
+def is_redis_available():
+    r = redis.from_url(current_app.config['CELERY_BROKER_URL'])
+    try:
+        r.ping()
+        return True
+    except redis.exceptions.ConnectionError:
+        return False
+
+
+def find_running_scraper(scraper_name):
+    """Returns task id as a string if a a task is found with the provided scraper name
+    Otherwise, returns None
+    Assumes only 1 Redis server is running"""
+    insp = cel.control.inspect()
+    if insp.stats() is None:
+        # this will check if any workers are available.
+        # insp.active() will hang if no workers are available
+        # so it is important to check this first
+        return None
+
+    # if len(insp.active()) > 1:
+    #     return "more than 1 redis server detected"
+
+    for k, active_tasks in insp.active().items():  # this returns active_tasks as a dict with an item
+        # for each redis server. Since there is just one key in the dict, you can return on the first loop
+        if len(active_tasks) == 0:
+            print("active_tasks length is 0")
+            return None
+        for task in active_tasks:
+            pattern = r".+[.](.+$)"  # will get task_name out of 'any.text.task_name'
+            match = re.match(pattern, task['name'])
+            task_name = match.groups()[0]
+            print(task_name, "was found")
+            if task_name == scraper_name:
+                return task['id']
+        return None
+
+        # sample response for inspect().active():
+        # {'celery@jacob-TM1701': [
+        #     {'id': '6b3e88e6-d6f4-4bf9-8831-cb6172027892', 'name': 'app.scraping.tasks.test_task', 'args': '()',
+        #      'kwargs': '{}', 'type': 'app.scraping.tasks.test_task', 'hostname': 'celery@jacob-TM1701',
+        #      'time_start': 1565626052.126947, 'acknowledged': True,
+        #      'delivery_info': {'exchange': '', 'routing_key': 'celery', 'priority': 0, 'redelivered': None},
+        #      'worker_pid': 25606}]}
+
+
+@bp.route('/test')
+def test():
+    return render_template('test.html')
+
+
+@bp.route('/starttask', methods=['POST'])
+@login_required
+def starttask():
+
+    scraper_name = request.form.get('scraper_name', None)
+    try:
+        scraper_func = current_app.scrapers[scraper_name]
+    except KeyError:
+        return "{} was not recognized as a scraper name".format(scraper_name), 500
+
+    if not is_redis_available():
+        return "Redis server not found", 500
+    if find_running_scraper(scraper_name):
+        return "This task is already running", 500
+    insp = cel.control.inspect()
+    if insp.stats() is None:
+        return "No workers are available", 500
+    scraper_func.apply_async()
+    return ("", 204)
+
+
+@bp.route('/check_status/<scraper_name>', methods=['GET'])
+@login_required
+def check_status(scraper_name):
+
+    scraper_func = current_app.scrapers[scraper_name]
+    if not is_redis_available():
+        return "Redis server not found", 500
+    scraper_id = find_running_scraper(scraper_name)
+    if not scraper_id:
+        return jsonify({"state": "not running"})
+
+    result = scraper_func.AsyncResult(scraper_id)
+    # TODO: account for possibility that the task has
+    #    changed state between the time that insp.active().items() was run and this line
+    #    i.e. it could not longer even exist at the point that this is run, causing an error
+    #    simply try AsyncResult when you know there is no task and see what the error it gives is, then
+    #    make a try/except for that scenario
+    state = result.state
+    response = result.info
+    response['state'] = result.state
+    return jsonify(response)
+
+
+@bp.route('/raw_results/<page_id>')
+def raw_results(page_id):
+    page = Page.query.filter_by(id=page_id).first()
+    return render_template("raw_results.html", page=page)
 
 
 @bp.route('/scrapers')
@@ -21,18 +124,6 @@ def scrapers():
         redis_running = False
     return render_template("scrapers.html", scrapers=current_app.scrapers, redis_running=redis_running)
 
-
-@bp.route('/test')
-def test():
-    scraper_name = "test"
-    scraper = current_app.scrapers[scraper_name]
-
-    if scraper.is_running():
-        status_url = url_for("scraping.check_status", scraper_name=scraper_name)  # signals that task is running
-    else:
-        status_url = None  # also works signal that indicates there is no task running
-
-    return render_template('test.html', status_url=status_url)
 
 @bp.route('/rechem')
 def rechem():
@@ -66,57 +157,17 @@ def rechem():
                            prev_url=prev_url, next_url=next_url)
 
 
-@bp.route('/starttask', methods=['POST'])
-@login_required
-def starttask():
-    scraper_name = request.form.get('scraper_name', None)
-    scraper = current_app.scrapers[scraper_name]
-    if scraper.is_running():
-        status_url = url_for("scraping.check_status", scraper_name=scraper_name)  # signals that task is running
-        return jsonify({}), 202, {'Location': status_url}
-    else:
-        status_url = None  # also works as signal that indicates that there wasn't already a task running
-        response = scraper.start_task()
-        return response
-
-
 @bp.route('/kill_task', methods=['POST'])
 @login_required
 def kill_task():
+
     scraper_name = request.form.get('scraper_name', None)
-    scraper = current_app.scrapers[scraper_name]
-    if scraper.is_running():
-        scraper.kill_task()
-        response = "task killed"
-    else:
-        response = "no task found"
-    return jsonify({'response': response}), 202
+    scraper_id = find_running_scraper(scraper_name)
+    if not scraper_id:
+        return jsonify({"response": "task was not running"}), 202
+    cel.control.revoke(scraper_id, terminate=True)
+    return jsonify({'response': "task was killed: {}".format(scraper_id)}), 202
 
-
-@bp.route('/check_status/<scraper_name>', methods=['GET'])
-@login_required
-def check_status(scraper_name):
-    try:
-        scraper = current_app.scrapers[scraper_name]
-    except:
-        return jsonify({'state': "Scraper not found"})
-    return jsonify(scraper.status())
-
-
-@bp.route('/raw_results/<page_id>')
-def raw_results(page_id):
-    page = Page.query.filter_by(id=page_id).first()
-    return render_template("raw_results.html", page=page)
-
-from app import celery
-@bp.route('/celery_tests')
-def celery_tests():
-    # inspect may only give information on tasks that have active workers.
-    # It's possible that there can be a task queued that hasn't yet been picked up by a worker
-    celery.current_app.control.inspect() # TODO if this doesn't work you might need to rename "from flask import current_app"
-    #len(app.control.inspect().active()['celery@default'])
-    #test inspect.reserved() for a task that is queued but not assigned
-    return "", 204
 
 ####################################
 ######### MOCK DATA ROUTES #########
