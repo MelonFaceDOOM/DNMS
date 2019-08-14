@@ -1,23 +1,48 @@
-// common variables
-var timeout;
-var timer;
-var nanobar;
-var status_url;
-var status_div;
-
-function check_existing_task(url) {
-    // add task status elements
-    div = $('<div class="progress"><div></div><div>0%</div><div>...</div><div>&nbsp;</div></div><hr>');
-    $('#progress').append(div);
-    status_div = div[0];
-    status_url = url;
-    // create a progress bar
-    nanobar = new Nanobar({
-        bg: '#44f',
-        target: div[0].childNodes[0]
+function load_results() {
+    $.ajax({
+        type: 'GET',
+        url: '/scraping/rechem_results',
+        success: function(response) {
+            $('#rechem_results').html(response);
+        }
     });
-    update_progress(status_url, nanobar, status_div);
-};
+}
+
+$(document).ready(function() {
+    load_results();
+});
+
+$(document).ready(function check_existing_task() {
+    // add task status elements
+    var scraper_name = "rechem";
+    $.ajax({
+        type: 'GET',
+        url: '/scraping/check_status/' + scraper_name,
+        success: function(data, status, request) {
+            if (data['state'] == "NOT RUNNING") {
+                return;
+            }
+            else {
+                // remove start button from page
+                $("#start-button").text("Scraping is in progress");
+                // add task status elements
+                div = $('<div class="progress"><div></div><div>0%</div><div>&nbsp;</div></div><hr>');
+                $('#progress').append(div);
+
+                // create a progress bar
+                var nanobar = new Nanobar({
+                    bg: '#44f',
+                    target: div[0].childNodes[0]
+                });
+                update_progress(nanobar, div[0]);
+            }
+        },
+        error: function(req, status, err) {
+            alert(req.responseText);
+        }
+    });
+});
+
 
 $(document).on("click", "#start-bg-job", function start_task() {
     // send ajax POST request to start background job
@@ -27,35 +52,34 @@ $(document).on("click", "#start-bg-job", function start_task() {
         url: '/scraping/starttask',
         data: {scraper_name: scraper_name},
         success: function(data, status, request) {
-            status_url = request.getResponseHeader('Location');
-
             // remove start button from page
-            $("#start-button").text("Scraping already running");
-			// add task status elements
-			div = $('<div class="progress"><div></div><div>0%</div><div>&nbsp;</div></div><hr>');
-			$('#progress').append(div);
-			status_div = div[0];
-			// create a progress bar
-			nanobar = new Nanobar({
-				bg: '#44f',
-				target: div[0].childNodes[0]
-			});
-            update_progress(status_url, nanobar, div[0]);
+            $("#start-button").text("Test is in progress");
+            // add task status elements
+            div = $('<div class="progress"><div></div><div>0%</div><div>&nbsp;</div></div><hr>');
+            $('#progress').append(div);
+
+            // create a progress bar
+            var nanobar = new Nanobar({
+                bg: '#44f',
+                target: div[0].childNodes[0]
+            });
+            update_progress(nanobar, div[0]);
 
         },
         error: function(req, status, err) {
-            alert(req.getResponseHeader('message-body'));
+            alert(req.responseText);
         }
     });
 });
 
 
-function update_progress(status_url, nanobar, status_div) {
+function update_progress(nanobar, status_div) {
     // send GET request to status URL
+    var status_url = "/scraping/check_status/rechem"
     $.getJSON(status_url, function(data) {
         //end function if no scraper found
-        if (data['state'] == "Scraper not found") {
-            alert(`No scraper associated with status_url: ${status_url}`);
+        if (data['state'] == "NOT RUNNING") {
+            alert(`No scraper currently running that is associated with status_url: ${status_url}`);
             return;
         }
         percent = parseInt(data['current'] * 100 / data['total']);
@@ -81,11 +105,12 @@ function update_progress(status_url, nanobar, status_div) {
         else if (data['state'] == "PENDING") {
             // rerun in 1 seconds
             setTimeout(function() {
-                update_progress(status_url, nanobar, status_div);
+                update_progress(nanobar, status_div);
             }, 1000);
         }
         //start countdown timer and wait that amount of time
         else if (data['state'] == "PROGRESS") {
+            load_results();
             var timeleft = data['sleeptime'];
             var timer = setInterval(function(){
                 $('#countdowntimer').text(timeleft);
@@ -104,7 +129,7 @@ function update_progress(status_url, nanobar, status_div) {
                 timeleft=data['sleeptime']
             }
             setTimeout(function() {
-                update_progress(status_url, nanobar, status_div);
+                update_progress(nanobar, status_div);
             }, timeleft * 1000);
         };
     });
@@ -117,18 +142,7 @@ $(document).on("click", "#kill-bg-job",function kill_task(task_id) {
         url: '/scraping/kill_task',
         data: {scraper_name: scraper_name},
         success: function(data, status, request) {
-            if (data['response'] == "task killed") {
-                clearTimeout(timeout);
-                clearInterval(timer);
-                update_progress(status_url, nanobar, status_div)
-                alert("task killed");
-            }
-            else if (data['response'] == "no task found") {
-                alert("No task was running");
-            }
-            else {
-                alert("Unexpected response from kill route")
-            }
+            alert(data["response"]);
         },
         error: function() {
             alert('Unexpected error');

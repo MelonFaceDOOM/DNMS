@@ -5,7 +5,7 @@ $(document).ready(function check_existing_task() {
         type: 'GET',
         url: '/scraping/check_status/' + scraper_name,
         success: function(data, status, request) {
-            if (data['state'] == "not running") {
+            if (data['state'] == "NOT RUNNING") {
                 return;
             }
             else {
@@ -62,7 +62,7 @@ function update_progress(nanobar, status_div) {
     var status_url = "/scraping/check_status/test_task"
     $.getJSON(status_url, function(data) {
         //end function if no scraper found
-        if (data['state'] == "not running") {
+        if (data['state'] == "NOT RUNNING") {
             alert(`No scraper currently running that is associated with status_url: ${status_url}`);
             return;
         }
@@ -112,13 +112,13 @@ function update_progress(nanobar, status_div) {
 
 
 $(document).on("click", "#kill-bg-job",function kill_task(task_id) {
-    var scraper_name = "test";
+    var scraper_name = "test_task";
     $.ajax({
         type: 'POST',
         url: '/scraping/kill_task',
         data: {scraper_name: scraper_name},
         success: function(data, status, request) {
-            alert("task killed");
+            alert(data["response"]);
         },
         error: function() {
             alert('Unexpected error');

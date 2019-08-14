@@ -29,51 +29,13 @@
         <div id="failures"></div>
         failures
     </div>
-
     <h1>Rechem Results</h1>
-    <table class="table table-condensed" id="Results">
-        <tr>
-            <th>Drug</th>
-            <th>url</th>
-            <th>Date Scraped</th>
-        </tr>
-        {% for page in pages %}
-        <tr>
-            <td>{{ page.listing.drug.name }}</td>
-            <td>
-                <a href="{{ page.listing.url }}">{{ page.listing.url }}</a>
-            </td>
-            <td>
-                <a href="{{ url_for('scraping.raw_results', page_id=page.id) }}">{{ page.timestamp }}</a></td>
-        </tr>
-        {% endfor %}
-    </table>
-    <nav aria-label="...">
-        <ul class="pager">
-            <li class="previous{% if not prev_url %} disabled{% endif %}">
-                <a href="{{ prev_url or '#' }}">
-                    <span aria-hidden="true">&larr;</span> Older results
-                </a>
-            </li>
-            <li class="next{% if not next_url %} disabled{% endif %}">
-                <a href="{{ next_url or '#' }}">
-                    Newer results <span aria-hidden="true">&rarr;</span>
-                </a>
-            </li>
-        </ul>
-    </nav>
+    <div id="rechem_results"></div>
+
 {% endblock %}
 
 {% block scripts %}
     <script src="//cdnjs.cloudflare.com/ajax/libs/nanobar/0.2.1/nanobar.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script src="{{ url_for('static', filename='js/rechem_routine_check.js') }}"></script>
-    <script>
-        {% if status_url %}
-        document.addEventListener('DOMContentLoaded', function() {
-            var status_url = '{{status_url}}';
-            check_existing_task(status_url);
-        }, false);
-        {% endif %}
-    </script>
 {% endblock %}

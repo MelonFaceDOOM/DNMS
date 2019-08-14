@@ -13,7 +13,7 @@ import pandas as pd
 import redis
 import re
 from app import celery as cel  # imports the object created when app is initialized
-
+from celery.exceptions import TaskRevokedError
 
 def is_redis_available():
     r = redis.from_url(current_app.config['CELERY_BROKER_URL'])
@@ -38,17 +38,17 @@ def find_running_scraper(scraper_name):
     # if len(insp.active()) > 1:
     #     return "more than 1 redis server detected"
 
+    scaper_func = current_app.scrapers[scraper_name].__name__
+
     for k, active_tasks in insp.active().items():  # this returns active_tasks as a dict with an item
         # for each redis server. Since there is just one key in the dict, you can return on the first loop
         if len(active_tasks) == 0:
-            print("active_tasks length is 0")
             return None
         for task in active_tasks:
             pattern = r".+[.](.+$)"  # will get task_name out of 'any.text.task_name'
             match = re.match(pattern, task['name'])
             task_name = match.groups()[0]
-            print(task_name, "was found")
-            if task_name == scraper_name:
+            if task_name == scaper_func:
                 return task['id']
         return None
 
@@ -61,8 +61,8 @@ def find_running_scraper(scraper_name):
         #      'worker_pid': 25606}]}
 
 
-@bp.route('/test')
-def test():
+@bp.route('/test_task')
+def test_task():
     return render_template('test.html')
 
 
@@ -96,7 +96,7 @@ def check_status(scraper_name):
         return "Redis server not found", 500
     scraper_id = find_running_scraper(scraper_name)
     if not scraper_id:
-        return jsonify({"state": "not running"})
+        return jsonify({"state": "NOT RUNNING"})
 
     result = scraper_func.AsyncResult(scraper_id)
     # TODO: account for possibility that the task has
@@ -104,9 +104,12 @@ def check_status(scraper_name):
     #    i.e. it could not longer even exist at the point that this is run, causing an error
     #    simply try AsyncResult when you know there is no task and see what the error it gives is, then
     #    make a try/except for that scenario
-    state = result.state
-    response = result.info
-    response['state'] = result.state
+    try:
+        response = result.info
+        response['state'] = result.state
+    except TaskRevokedError:
+        response = {"state": "TaskRevokedError"}
+
     return jsonify(response)
 
 
@@ -130,8 +133,24 @@ def rechem():
     # It might make sense to eventually just have one task page that takes a task_name argument, but I'm not sure
     # How different the templates will be for different tasks. I imagine a crawler for a dark net site might
     # Be significantly different, so I don't think it would run off the same template
-    scraper_name = "rechem"
-    scraper = current_app.scrapers[scraper_name]
+    return render_template('rechem.html')
+
+
+@bp.route('/kill_task', methods=['POST'])
+@login_required
+def kill_task():
+
+    scraper_name = request.form.get('scraper_name', None)
+    scraper_id = find_running_scraper(scraper_name)
+    if not scraper_id:
+        return jsonify({"response": "task was not running"}), 202
+    cel.control.revoke(scraper_id, terminate=True)
+    return jsonify({'response': "task was killed: {}".format(scraper_id)}), 202
+
+
+@bp.route('/rechem_results', methods=['GET'])
+@login_required
+def rechem_results():
     market = Market.query.filter_by(name="rechem_real").first()  # TODO: replace with "scraper_name"
     page = request.args.get('page', 1, type=int)
 
@@ -146,28 +165,7 @@ def rechem():
         pages = []
         next_url = None
         prev_url = None
-
-    # TODO: include a button to run a task to re-check all listings on rechem
-    if scraper.is_running():
-        status_url = url_for("scraping.check_status", scraper_name=scraper_name)  # signals that task is running
-    else:
-        status_url = None  # signals that there is no task running
-
-    return render_template('rechem.html', status_url=status_url, pages=pages,
-                           prev_url=prev_url, next_url=next_url)
-
-
-@bp.route('/kill_task', methods=['POST'])
-@login_required
-def kill_task():
-
-    scraper_name = request.form.get('scraper_name', None)
-    scraper_id = find_running_scraper(scraper_name)
-    if not scraper_id:
-        return jsonify({"response": "task was not running"}), 202
-    cel.control.revoke(scraper_id, terminate=True)
-    return jsonify({'response': "task was killed: {}".format(scraper_id)}), 202
-
+    return render_template('_rechem_results.html', pages=pages, prev_url=prev_url, next_url=next_url)
 
 ####################################
 ######### MOCK DATA ROUTES #########
@@ -374,7 +372,7 @@ def sf4fefffdsf():
         market_name = markets[markets['id'] == int(row['market_id'])]['name'].item()
         new_market_id = Market.query.filter_by(name=market_name).first().id
 
-        drug_name = drugs[drugs['id'] == row['drug_id']]['name'].item()
+        drug_name = drugs[drugs['id'] == int(row['drug_id'])]['name'].item()
         new_drug_id = Drug.query.filter_by(name=drug_name).first().id
 
         listing = Listing(url=row['url'], seller=None, timestamp=row['timestamp'],

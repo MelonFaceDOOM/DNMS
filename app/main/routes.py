@@ -6,17 +6,19 @@ from app.main import bp
 from app.main.forms import EditProfileForm, SearchForm
 from app.main.graphs import create_plot
 import os
-from app.scraping.tasks import rechem_routine_task
+
 
 @bp.before_app_request
 def before_request():
     if current_user.is_authenticated:
         g.search_form = SearchForm()
 
+
 @bp.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(current_app.root_path, 'static'),
                                'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
 
 @bp.route('/')
 @bp.route('/index')
