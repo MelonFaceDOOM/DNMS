@@ -6,7 +6,6 @@ import jwt
 from app import db, login
 from app.search import add_to_index, remove_from_index, query_index
 from sqlalchemy.orm import validates
-from sqlalchemy.dialects.mysql import LONGTEXT
 import datetime
 
 

@@ -2,7 +2,7 @@ from app import celery
 from random import randint, randrange
 from app.models import Market, Page
 from app import db
-import time
+from flask import current_app
 import requests
 from app.rechem_scraping import rget
 from time import sleep
@@ -66,9 +66,10 @@ def rechem_routine_task(self):
         else:
             logging.info("attempting to add page with listing id: {} and html: {}".format(page.listing.id,
                                                                                           content.text[:15]))
-            db.session.add(Page(listing_id=page.listing_id, html=content.text))
-            # todo: test just using flask shell with mysql to add a page with just listing id and html
-            db.session.commit()
+            with current_app._get_current_object().app_context():
+                db.session.add(Page(listing_id=page.listing.id, html=content.text))
+                db.session.commit()
+
             successes += 1
             status = "Successfully scraped {} \n waiting before attempting next page".format(current_url)
 

@@ -15,6 +15,7 @@ import re
 from app import celery as cel  # imports the object created when app is initialized
 from celery.exceptions import TaskRevokedError
 
+
 def is_redis_available():
     r = redis.from_url(current_app.config['CELERY_BROKER_URL'])
     try:
@@ -149,7 +150,6 @@ def kill_task():
 
 
 @bp.route('/rechem_results', methods=['GET'])
-@login_required
 def rechem_results():
     market = Market.query.filter_by(name="rechem_real").first()  # TODO: replace with "scraper_name"
     page = request.args.get('page', 1, type=int)
@@ -375,7 +375,11 @@ def sf4fefffdsf():
         drug_name = drugs[drugs['id'] == int(row['drug_id'])]['name'].item()
         new_drug_id = Drug.query.filter_by(name=drug_name).first().id
 
-        listing = Listing(url=row['url'], seller=None, timestamp=row['timestamp'],
+        # TODO: this is required for sqlite, but may or may not work with sqlalchemy
+        time_format = "%Y-%m-%d %H:%M:%S.%f"
+        timestamp = datetime.strptime(row['timestamp'], time_format)
+
+        listing = Listing(url=row['url'], seller=None, timestamp=timestamp,
                           market_id=new_market_id, drug_id=new_drug_id, origin_id=None)
         if not Listing.query.filter_by(url=listing.url).first():
             new_listings.append(listing)
@@ -390,7 +394,12 @@ def sf4fefffdsf():
     for i, row in rechem_pages.iterrows():
         listing_url = listings[listings['id'] == int(row['listing_id'])]['url'].item()
         new_listing_id = Listing.query.filter_by(url=listing_url).first().id
-        page = Page(name=row['name'], html=row['html'], timestamp=row['timestamp'], listing_id=new_listing_id)
+
+        # TODO: this is required for sqlite, but may or may not work with sqlalchemy
+        time_format = "%Y-%m-%d %H:%M:%S.%f"
+        timestamp = datetime.strptime(row['timestamp'], time_format)
+
+        page = Page(name=row['name'], html=row['html'], timestamp=timestamp, listing_id=new_listing_id)
         if not Page.query.filter_by(listing_id=page.listing_id, timestamp=page.timestamp).first():
             new_pages.append(page)
         else:

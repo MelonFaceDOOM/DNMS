@@ -1,7 +1,7 @@
 from flask import render_template, flash, redirect, url_for, request, g, current_app, jsonify, send_from_directory
 from flask_login import current_user, login_required
 from app import db
-from app.models import User, Drug, Listing, Market
+from app.models import User, Drug, Listing, Market, Page
 from app.main import bp
 from app.main.forms import EditProfileForm, SearchForm
 from app.main.graphs import create_plot
@@ -117,3 +117,18 @@ def create_market():
     # TODO: may be better to return ('', 204) for this. We may want to delete through this route in the future on
     # TODO: a different page and not return the table. Create a separate route to get markets and render table
     return render_template('_data_summary_table.html', markets=markets)
+
+from upload_token import upload_token
+@bp.route('/add_page', methods=['POST'])
+def add_page():
+    token = request.form['token']
+    if not token == upload_token:
+        return "bad token", 403
+
+    listing_id = request.form['listing_id']
+    html_text = request.form['html_text']
+
+    db.session.add(Page(listing_id=listing_id, html=html_text))
+    db.session.commit()
+
+    return "", 204
