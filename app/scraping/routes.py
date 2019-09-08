@@ -17,7 +17,8 @@ from celery.exceptions import TaskRevokedError
 
 
 def is_redis_available():
-    r = redis.from_url(current_app.config['CELERY_BROKER_URL'])
+    print(current_app.config['BROKER_URL'])
+    r = redis.from_url(current_app.config['BROKER_URL'])
     try:
         r.ping()
         return True

@@ -118,12 +118,9 @@ def create_market():
     # TODO: a different page and not return the table. Create a separate route to get markets and render table
     return render_template('_data_summary_table.html', markets=markets)
 
-from upload_token import upload_token
+
 @bp.route('/add_page', methods=['POST'])
 def add_page():
-    token = request.form['token']
-    if not token == upload_token:
-        return "bad token", 403
 
     listing_id = request.form['listing_id']
     html_text = request.form['html_text']

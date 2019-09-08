@@ -7,8 +7,8 @@ WORKDIR /home/dnms
 
 COPY requirements.txt requirements.txt
 
-# for pyscopg2
-RUN apk update && apk add postgresql-dev gcc python3-dev musl-dev
+# for pyscopg2 (for postgresql)
+# RUN apk update && apk add postgresql-dev gcc python3-dev musl-dev
 
 # for pyzmqt
 RUN apk add build-base libzmq python3 zeromq-dev
@@ -24,7 +24,7 @@ RUN venv/bin/pip install gunicorn pymysql
 
 COPY app app
 COPY migrations migrations
-COPY DNMS.py config.py boot.sh ./
+COPY DNMS.py extensions.py config.py boot.sh ./
 RUN chmod +x boot.sh
 
 ENV FLASK_APP DNMS.py
