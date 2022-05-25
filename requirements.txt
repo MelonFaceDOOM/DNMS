@@ -56,7 +56,7 @@ postmarkup==1.2.2
 prompt-toolkit==2.0.9
 ptyprocess==0.6.0
 Pygments==2.3.1
-PyJWT==1.6.4
+PyJWT==2.4.0
 pyrsistent==0.15.1
 python-dateutil==2.7.5
 python-dotenv==0.9.1
