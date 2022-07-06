@@ -41,7 +41,7 @@ jsonschema==3.0.1
 jupyter-client==5.2.4
 jupyter-core==4.4.0
 kombu==4.5.0
-lxml==4.3.3
+lxml==4.9.1
 Mako==1.0.7
 MarkupSafe==1.1.1
 nbformat==4.4.0
