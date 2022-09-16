@@ -42,7 +42,7 @@ jupyter-client==5.2.4
 jupyter-core==4.4.0
 kombu==4.5.0
 lxml==4.3.3
-Mako==1.0.7
+Mako==1.2.2
 MarkupSafe==1.1.1
 nbformat==4.4.0
 numpy==1.16.3
